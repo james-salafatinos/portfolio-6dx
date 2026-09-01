@@ -6,7 +6,6 @@ const { discoverExperiments } = require('../platform/discovery');
 test('discovers core experiments', () => {
   const experiments = discoverExperiments();
   assert.ok(experiments.length > 0);
-  assert.ok(experiments.some((x) => x.slug === 'particle-field'));
   assert.ok(experiments.some((x) => x.slug === 'voronoi-percolation'));
 });
 

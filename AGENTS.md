@@ -28,6 +28,7 @@ Current shared imports:
 - Three.js examples: `/vendor/three/examples/jsm/...`
 - lil-gui: `/vendor/lil-gui/lil-gui.esm.js`
 - marked (renders each experiment's `notes.md` in the platform's notes sidebar): `/vendor/marked/marked.esm.js`
+- MathJax (typesets `$...$` / `$$...$$` LaTeX inside rendered notes): `/vendor/mathjax/tex-svg.js`
 
 Add a new shared dependency only when it is useful across experiments or materially simplifies an experiment without introducing a build step.
 

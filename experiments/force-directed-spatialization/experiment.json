@@ -1,0 +1,9 @@
+{
+  "name": "Naive Force-Directed Spatialization",
+  "slug": "force-directed-spatialization",
+  "description": "Particles repel each other, attract toward everyone, and softly bounce off walls until the system settles into a spatial layout.",
+  "entry": "App.js",
+  "type": "simulation",
+  "tags": ["force-directed", "graph-layout", "physics", "three.js"],
+  "featured": false
+}

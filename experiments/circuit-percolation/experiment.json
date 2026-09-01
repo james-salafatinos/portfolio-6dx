@@ -1,0 +1,9 @@
+{
+  "name": "Circuit Percolation",
+  "slug": "circuit-percolation",
+  "description": "Bond percolation as an actual electrical circuit: current flow reveals the load-bearing backbone, and optional fuses let it burn out in real time.",
+  "entry": "App.js",
+  "type": "simulation",
+  "tags": ["percolation", "random-fuse-model", "current-flow", "physics", "three.js", "original"],
+  "featured": true
+}
