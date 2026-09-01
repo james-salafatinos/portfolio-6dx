@@ -20,6 +20,16 @@ When asked to visualize, simulate, demonstrate, or explore a concept:
 - Avoid coupling experiments to one another. Reuse shared utilities only when reuse is real, not speculative.
 - Experiment-specific tests are optional; platform validation and smoke tests are mandatory.
 
+## Shared visualization dependencies
+6DX exposes approved npm dependencies as browser-native ES modules through stable server paths. Prefer these over vendoring large third-party files into individual experiments.
+
+Current shared imports:
+- Three.js: `/vendor/three/build/three.module.js`
+- Three.js examples: `/vendor/three/examples/jsm/...`
+- lil-gui: `/vendor/lil-gui/lil-gui.esm.js`
+
+Add a new shared dependency only when it is useful across experiments or materially simplifies an experiment without introducing a build step.
+
 ## Experiment contract
 Each experiment folder must contain:
 - `experiment.json`
@@ -35,6 +45,11 @@ Required metadata fields:
 - `tags`
 
 Slugs must be lowercase kebab-case and unique.
+
+The entry module must default-export an experiment object/class compatible with the 6DX lifecycle:
+- `start()` optional initialization
+- `resize(width, height)` optional responsive sizing
+- `destroy()` optional cleanup
 
 ## Graduation rule
 If an experiment grows into a substantial application with its own backend, auth, database, workers, networking, or independent deployment lifecycle, move it to its own repository rather than expanding the 6DX core. Add it to `projects/projects.json` so 6DX remains the creative index.
