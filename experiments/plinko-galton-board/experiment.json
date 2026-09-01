@@ -1,0 +1,9 @@
+{
+  "name": "Plinko / Galton Board",
+  "slug": "plinko-galton-board",
+  "description": "Hold to drop balls through a peg grid; the histogram converges to a normal distribution via the Central Limit Theorem.",
+  "entry": "App.js",
+  "type": "simulation",
+  "tags": ["probability", "central-limit-theorem", "physics", "three.js"],
+  "featured": true
+}

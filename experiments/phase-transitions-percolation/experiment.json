@@ -1,0 +1,9 @@
+{
+  "name": "Phase Transitions & Percolation",
+  "slug": "phase-transitions-percolation",
+  "description": "Bond percolation on a 3D lattice, colored by Union-Find connected components, with an oscillating probability threshold.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["percolation", "union-find", "phase-transition", "three.js"],
+  "featured": true
+}

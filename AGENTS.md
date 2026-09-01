@@ -10,7 +10,7 @@ When asked to visualize, simulate, demonstrate, or explore a concept:
 3. Keep changes inside the new experiment unless platform changes are truly necessary.
 4. Prefer browser-native JavaScript and existing shared code over adding frameworks or dependencies.
 5. Include a valid `experiment.json` and concise `notes.md`.
-6. Run `npm test` before finishing.
+6. Run `npm test` before finishing. Run `npm run smoke` too when a browser is available — it loads every route in real Chromium and catches runtime/module errors that an HTTP-only check misses.
 7. Fix regressions before committing.
 
 ## Architecture guardrails
@@ -27,6 +27,7 @@ Current shared imports:
 - Three.js: `/vendor/three/build/three.module.js`
 - Three.js examples: `/vendor/three/examples/jsm/...`
 - lil-gui: `/vendor/lil-gui/lil-gui.esm.js`
+- marked (renders each experiment's `notes.md` in the platform's notes sidebar): `/vendor/marked/marked.esm.js`
 
 Add a new shared dependency only when it is useful across experiments or materially simplifies an experiment without introducing a build step.
 
