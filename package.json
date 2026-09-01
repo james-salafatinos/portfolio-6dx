@@ -8,12 +8,16 @@
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
     "validate": "node scripts/validate-experiments.js",
-    "test": "node --test tests/*.test.js && npm run validate"
+    "test": "node --test tests/*.test.js && npm run validate",
+    "smoke": "node scripts/smoke-browser.js"
   },
   "engines": { "node": ">=22" },
   "dependencies": {
     "express": "^5.1.0",
     "lil-gui": "^0.20.0",
     "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
   }
 }

@@ -17,7 +17,7 @@ Open `http://localhost:8080`.
 2. Edit `experiment.json`.
 3. Build the idea in `App.js` (split into additional files only when useful).
 4. Add short conceptual notes in `notes.md`.
-5. Run `npm test`.
+5. Run `npm test`. Run `npm run smoke` too if a browser is available — it loads the homepage and every experiment in real Chromium and fails on console errors, page errors, or a failed module import (things an HTTP-only check can miss).
 
 The server discovers experiments automatically from `experiment.json`; no route registration is required.
 

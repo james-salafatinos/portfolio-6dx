@@ -15,6 +15,7 @@ function createApp() {
   app.use('/vendor/lil-gui', express.static(path.join(ROOT, 'node_modules', 'lil-gui', 'dist')));
 
   app.get('/health', (_req, res) => res.json({ ok: true }));
+  app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
   app.get('/', (_req, res) => {
     const experiments = discoverExperiments();
