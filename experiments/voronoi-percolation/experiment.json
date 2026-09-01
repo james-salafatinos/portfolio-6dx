@@ -1,0 +1,8 @@
+{
+  "name": "Voronoi Percolation",
+  "slug": "voronoi-percolation",
+  "description": "Continuum percolation on a moving Voronoi/Delaunay graph with Union-Find cluster coloring.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["percolation", "voronoi", "delaunay", "probability", "three.js"]
+}
