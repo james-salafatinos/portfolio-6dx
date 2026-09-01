@@ -1,0 +1,9 @@
+{
+  "name": "Particle Field",
+  "slug": "particle-field",
+  "description": "A minimal canvas experiment proving the 6DX experiment contract.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["canvas", "particles", "template"],
+  "featured": true
+}

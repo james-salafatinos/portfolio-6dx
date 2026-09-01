@@ -1,0 +1,9 @@
+{
+  "name": "Experiment Name",
+  "slug": "experiment-name",
+  "description": "What this experiment demonstrates.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["example"],
+  "featured": false
+}

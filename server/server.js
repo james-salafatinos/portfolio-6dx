@@ -1,0 +1,38 @@
+const express = require('express');
+const path = require('path');
+const { ROOT, EXPERIMENTS_DIR, discoverExperiments, findExperiment } = require('../platform/discovery');
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#039;' }[c]));
+}
+
+function createApp() {
+  const app = express();
+  app.disable('x-powered-by');
+  app.use('/experiments', express.static(EXPERIMENTS_DIR));
+  app.use('/platform', express.static(path.join(ROOT, 'platform', 'public')));
+
+  app.get('/health', (_req, res) => res.json({ ok: true }));
+
+  app.get('/', (_req, res) => {
+    const experiments = discoverExperiments();
+    const cards = experiments.map((x) => `<a class="card" href="/x/${encodeURIComponent(x.slug)}"><strong>${escapeHtml(x.name)}</strong><span>${escapeHtml(x.description)}</span><small>${(x.tags || []).map(escapeHtml).join(' · ')}</small></a>`).join('');
+    res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Portfolio 6DX</title><link rel="stylesheet" href="/platform/styles.css"></head><body><main><header><p class="eyebrow">PORTFOLIO 6DX</p><h1>Experiments</h1><p>A frictionless laboratory for visualizations, simulations, and ideas.</p></header><section class="grid">${cards || '<p>No experiments yet.</p>'}</section></main></body></html>`);
+  });
+
+  app.get('/x/:slug', (req, res) => {
+    const experiment = findExperiment(req.params.slug);
+    if (!experiment) return res.status(404).send('Experiment not found');
+    const entry = `/experiments/${encodeURIComponent(experiment.folder)}/${experiment.entry.split('/').map(encodeURIComponent).join('/')}`;
+    res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(experiment.name)} · 6DX</title><link rel="stylesheet" href="/platform/styles.css"></head><body class="experiment-page"><a class="back" href="/">← 6DX</a><div id="experiment-root"></div><div id="experiment-error" hidden></div><script type="module">import Experiment from '${entry}'; const root=document.querySelector('#experiment-root'); try { const instance=new Experiment(root); window.__experiment=instance; await instance.start?.(); const resize=()=>instance.resize?.(innerWidth,innerHeight); addEventListener('resize',resize); resize(); } catch(error) { console.error(error); const box=document.querySelector('#experiment-error'); box.hidden=false; box.textContent='Experiment failed: '+error.message; }</script></body></html>`);
+  });
+
+  return app;
+}
+
+if (require.main === module) {
+  const port = Number(process.env.PORT) || 8080;
+  createApp().listen(port, () => console.log(`Portfolio 6DX listening on http://localhost:${port}`));
+}
+
+module.exports = { createApp };
