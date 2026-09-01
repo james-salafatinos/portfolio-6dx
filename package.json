@@ -11,10 +11,13 @@
     "test": "node --test tests/*.test.js && npm run validate",
     "smoke": "node scripts/smoke-browser.js"
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "express": "^5.1.0",
     "lil-gui": "^0.20.0",
+    "marked": "^15.0.12",
     "three": "^0.180.0"
   },
   "devDependencies": {

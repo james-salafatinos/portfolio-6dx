@@ -1,0 +1,9 @@
+{
+  "name": "N-Body: Velocity Verlet",
+  "slug": "nbody-velocity-verlet",
+  "description": "Gravitational N-body simulation integrated with the velocity Verlet method for stable long-term orbits.",
+  "entry": "App.js",
+  "type": "simulation",
+  "tags": ["n-body", "gravity", "integration", "three.js"],
+  "featured": false
+}

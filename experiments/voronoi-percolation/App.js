@@ -44,6 +44,7 @@ export default class Experiment {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setClearColor(0x0a0e1a);
     this.renderer.setAnimationLoop(() => this.update());
+    this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%';
     this.container.appendChild(this.renderer.domElement);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -77,6 +78,7 @@ export default class Experiment {
     this.gui.add(this.controlsState, 'Show Points');
 
     this.game = new Game(this.scene, this.controlsState);
+    this.resize(this.container.clientWidth, this.container.clientHeight);
   }
 
   update() {
