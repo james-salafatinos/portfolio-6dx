@@ -1,0 +1,8 @@
+{
+  "name": "Percolation Connectivity Lab",
+  "slug": "percolation-connectivity-lab",
+  "description": "One Union-Find connectivity engine driving square, Voronoi-style, and random geometric percolation experiments.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["percolation", "union-find", "connectivity", "graph", "monte-carlo"]
+}
