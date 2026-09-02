@@ -5,6 +5,9 @@ import GUI from '/vendor/lil-gui/lil-gui.esm.js';
 const PATCH_LOCAL_NORMAL = new THREE.Vector3(0, 0, 1);
 const EPSILON_TIME = 1e-5;
 const MAX_HISTORY = 160;
+const MAX_COLLISIONS_PER_FRAME = 16;
+const MICRO_FLIGHT_TIME = 1 / 240;
+const MICRO_BOUNCES_BEFORE_SLEEP = 10;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -237,6 +240,9 @@ class Simulation {
     this.sphere = new SphereState(this.settings.sphereRadius);
     this.orientationController = new SphereOrientationController(this.sphere);
     this.bounceCount = 0;
+    this.microBounceCount = 0;
+    this.resting = false;
+    this.restReason = '';
     this.elapsedInFlight = 0;
     this.history = [];
     this.ball = new BallState(
@@ -285,6 +291,20 @@ class Simulation {
   }
 
   scheduleNextCollision() {
+    if (this.resting) {
+      this.nextCollisionTime = 0;
+      this.nextCollisionPoint = this.ball.position.clone();
+      this.predictedIncomingVelocity = this.ball.velocity.clone();
+      this.orientationPlan = this.orientationController.createPlan(
+        this.nextCollisionPoint.clone().normalize(),
+        0,
+        this.settings
+      );
+      this.rebuildTrajectorySamples();
+      this.updateDiagnostics();
+      return;
+    }
+
     this.sphere.radius = this.settings.sphereRadius;
     const prediction = CollisionPredictor.nextCollision(
       this.flightStartPosition,
@@ -314,6 +334,12 @@ class Simulation {
   }
 
   update(dt) {
+    if (this.resting) {
+      this.ball.velocity.set(0, 0, 0);
+      this.updateDiagnostics();
+      return;
+    }
+
     if (!this.settings.playing) {
       this.orientationController.apply(this.elapsedInFlight);
       this.updateBallFromAnalyticState();
@@ -322,11 +348,21 @@ class Simulation {
     }
 
     let remaining = Math.min(0.06, dt) * this.settings.simulationSpeed;
+    let collisionsThisFrame = 0;
     while (remaining > 0) {
       const step = Math.min(remaining, this.nextCollisionTime - this.elapsedInFlight);
       this.elapsedInFlight += step;
       remaining -= step;
-      if (this.nextCollisionTime - this.elapsedInFlight <= 1e-7) this.resolveCollision();
+      if (this.nextCollisionTime - this.elapsedInFlight <= 1e-7) {
+        this.resolveCollision();
+        collisionsThisFrame += 1;
+        if (this.resting || collisionsThisFrame >= MAX_COLLISIONS_PER_FRAME) {
+          if (!this.resting && this.settings.restitution < 0.999) {
+            this.enterRestState('micro-bounce frame cap');
+          }
+          break;
+        }
+      }
     }
 
     this.orientationController.apply(this.elapsedInFlight);
@@ -363,13 +399,52 @@ class Simulation {
     this.flightStartVelocity = reflected;
     this.elapsedInFlight = 0;
     this.bounceCount += 1;
+
+    if (this.settings.restitution < 0.999 && this.nextCollisionTime < MICRO_FLIGHT_TIME) {
+      this.microBounceCount += 1;
+    } else {
+      this.microBounceCount = 0;
+    }
+
+    if (this.microBounceCount >= MICRO_BOUNCES_BEFORE_SLEEP) {
+      this.enterRestState('inelastic micro-bounce cutoff');
+      return;
+    }
+
     this.scheduleNextCollision();
   }
 
   stepCollision() {
+    if (this.resting) return;
     this.settings.playing = false;
     this.elapsedInFlight = this.nextCollisionTime;
     this.resolveCollision();
+  }
+
+  enterRestState(reason) {
+    this.resting = true;
+    this.restReason = reason;
+    this.settings.playing = false;
+    this.ball.velocity.set(0, 0, 0);
+    this.flightStartPosition = this.ball.position.clone();
+    this.flightStartVelocity = this.ball.velocity.clone();
+    this.nextCollisionTime = 0;
+    this.nextCollisionPoint = this.ball.position.clone();
+    this.predictedIncomingVelocity = this.ball.velocity.clone();
+    this.orientationPlan = {
+      startQ: this.sphere.quaternion.clone(),
+      targetQ: this.sphere.quaternion.clone(),
+      angle: 0,
+      available: 0,
+      minTime: 0,
+      flightTime: 0,
+      possible: true,
+      rotateSphere: false,
+      mode: this.settings.mode
+    };
+    this.orientationController.plan = this.orientationPlan;
+    this.rebuildTrajectorySamples();
+    this.updateDiagnostics();
   }
 
   energyAt(position, velocity) {
@@ -393,6 +468,9 @@ class Simulation {
       minimumRequiredTime: plan?.minTime ?? 0,
       stoppedBeforeCollision: !!plan?.possible,
       impossible: !!plan && !plan.possible,
+      resting: this.resting,
+      restReason: this.restReason,
+      microBounceCount: this.microBounceCount,
       patchErrorAtImpact: last?.patchError ?? 0,
       currentTargetPatchError: currentPatchError,
       energy: currentEnergy,
@@ -595,8 +673,10 @@ class Diagnostics {
   update() {
     const d = this.simulation.diagnostics;
     this.el.innerHTML = `
-      <strong>${d.impossible ? 'INTERCEPTION IMPOSSIBLE' : 'Patch interception scheduled'}</strong>
+      <strong>${d.resting ? 'BALL SETTLED' : d.impossible ? 'INTERCEPTION IMPOSSIBLE' : 'Patch interception scheduled'}</strong>
+      ${d.resting ? `<span>Rest state: ${d.restReason}</span>` : ''}
       <span>Bounce #: ${d.bounceCount}</span>
+      <span>Micro-bounce count: ${d.microBounceCount}</span>
       <span>Flight time: ${d.flightTime.toFixed(3)} s</span>
       <span>Time to impact: ${d.timeToImpact.toFixed(3)} s</span>
       <span>Next collision: ${formatVector(d.nextCollision)}</span>

@@ -6,4 +6,6 @@ The physics is event based. Each flight solves for the next positive root of `|p
 
 The restitution control adds optional energy loss at each wall impact. `1.0` is the original perfectly elastic case; lower values reduce the normal component of outgoing velocity and make the diagnostic energy change intentionally negative over time.
 
+Very low-energy inelastic states can create rapid micro-bounces that approach zero flight time. The simulation detects that chatter and puts the ball into a settled state instead of trying to process an unbounded number of collisions in one frame.
+
 Use **Ideal kinematic** mode to see the mathematical trick. Use **Physical actuator** mode to test angular velocity, angular acceleration, and settle-time limits. The important validation metric is the patch-coordinate collision error: world impact points should vary, while successful local impact directions stay aligned with the fixed patch normal.
