@@ -1,0 +1,9 @@
+{
+  "name": "Elastic Patch Sphere",
+  "slug": "elastic-patch-sphere",
+  "description": "A Three.js event-based billiards experiment where a marked spherical shell reorients between ideal elastic impacts under gravity.",
+  "entry": "App.js",
+  "type": "simulation",
+  "tags": ["three.js", "physics", "gravity", "quaternion", "control"],
+  "featured": false
+}
