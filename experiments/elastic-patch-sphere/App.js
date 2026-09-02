@@ -100,9 +100,10 @@ class CollisionPredictor {
 }
 
 class CollisionResolver {
-  static reflect(velocity, collisionPoint) {
+  static reflect(velocity, collisionPoint, restitution = 1) {
     const outwardNormal = collisionPoint.clone().normalize();
-    return velocity.clone().addScaledVector(outwardNormal, -2 * velocity.dot(outwardNormal));
+    const normalSpeed = velocity.dot(outwardNormal);
+    return velocity.clone().addScaledVector(outwardNormal, -(1 + restitution) * normalSpeed);
   }
 }
 
@@ -210,6 +211,7 @@ class Simulation {
       initVz: 0.65,
       maxAngularVelocity: 7.5,
       maxAngularAcceleration: 32,
+      restitution: 1,
       settleTime: 0.15,
       simulationSpeed: 1,
       showTrail: true,
@@ -354,7 +356,7 @@ class Simulation {
     });
     if (this.history.length > MAX_HISTORY) this.history.shift();
 
-    const reflected = CollisionResolver.reflect(incoming, worldImpact);
+    const reflected = CollisionResolver.reflect(incoming, worldImpact, this.settings.restitution);
     this.ball.position.copy(worldImpact);
     this.ball.velocity.copy(reflected);
     this.flightStartPosition = worldImpact;
@@ -605,7 +607,7 @@ class Diagnostics {
       <span>Patch error at impact: ${d.patchErrorAtImpact.toFixed(4)} deg</span>
       <span>Live patch-to-target error: ${d.currentTargetPatchError.toFixed(3)} deg</span>
       <span>Ball energy: ${d.energy.toFixed(6)}</span>
-      <span>Energy drift: ${d.energyDrift.toExponential(2)}</span>
+      <span>Energy change from reset: ${d.energyDrift.toExponential(2)}</span>
       <span>Collision prediction error: ${d.collisionPredictionError.toExponential(2)}</span>
       <span>Patch-coordinate collision error: ${d.localImpactError.toFixed(4)} deg</span>
     `;
@@ -655,6 +657,8 @@ class ControlGUI {
     this.track(actuator.add(s, 'maxAngularVelocity', 0.1, 30, 0.1).name('Max angular velocity').onChange(reset));
     this.track(actuator.add(s, 'maxAngularAcceleration', 0.5, 120, 0.5).name('Max angular acceleration').onChange(reset));
     this.track(actuator.add(s, 'settleTime', 0, 0.7, 0.01).name('Settle time').onChange(reset));
+    const physics = this.gui.addFolder('Physics');
+    this.track(physics.add(s, 'restitution', 0.05, 1, 0.01).name('Restitution'));
     this.track(this.gui.add(s, 'simulationSpeed', 0.05, 4, 0.05).name('Simulation speed'));
     const view = this.gui.addFolder('View');
     this.track(view.add(s, 'showTrail').name('Trajectory trail'));
