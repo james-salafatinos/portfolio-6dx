@@ -132,22 +132,25 @@ export default class Experiment {
         font-variant-numeric: tabular-nums;
         max-width: 5.5em;
       }
+      /* Mobile: stay top-right — never cover the canvas floor / ground. */
       .lj-gui-host.lj-gui-mobile {
-        top: auto;
-        right: 0;
-        left: 0;
-        bottom: 0;
-        max-width: none;
-        max-height: min(38vh, 280px);
-        border-radius: 14px 14px 0 0;
-        border-top: 1px solid rgba(120,160,220,0.28);
-        background: rgba(8,12,20,0.94);
+        top: 10px;
+        right: 8px;
+        left: auto;
+        bottom: auto;
+        max-width: min(210px, 48vw);
+        max-height: min(52vh, calc(100% - 24px));
+        border-radius: 10px;
+        border: 1px solid rgba(120,160,220,0.22);
+        background: rgba(8,12,20,0.92);
         backdrop-filter: blur(10px);
+        transform: none;
       }
       .lj-gui-host.lj-gui-mobile .lil-gui {
         min-width: 0;
         width: 100%;
-        --name-width: 48%;
+        --name-width: 50%;
+        font-size: 10px;
       }
       .lj-species-bar {
         position: absolute;
@@ -202,13 +205,20 @@ export default class Experiment {
         pointer-events: none;
         backdrop-filter: blur(6px);
       }
-      .lj-gui-mobile ~ .lj-hint,
+      /* Hint stays low but does not sit under a bottom sheet. */
       .lj-hint.lj-hint-raised {
-        bottom: calc(min(38vh, 280px) + 12px);
+        bottom: 18px;
       }
       @media (max-width: 720px), (max-height: 560px) {
-        .lj-species-bar { top: auto; bottom: calc(min(38vh, 280px) + 56px); }
-        .lj-hud { max-width: min(320px, calc(100% - 24px)) !important; }
+        /* Under HUD on the left — clear of top-right Controls and the floor */
+        .lj-species-bar {
+          top: 96px;
+          bottom: auto;
+          left: 12px;
+          right: auto;
+          transform: none;
+        }
+        .lj-hud { max-width: min(280px, calc(100% - 230px)) !important; }
       }
     `;
     this.container.appendChild(style);
