@@ -238,7 +238,8 @@ export default class Experiment {
       /* Clear fixed site chrome (← 6DX + notes) and top-right Controls. */
       @media (max-width: 720px), (max-height: 560px) {
         .lj-hud {
-          top: 58px;
+          /* Below fixed ← 6DX + notes (top:18px, ~38px tall + shadow) */
+          top: 72px;
           left: 12px;
           max-width: calc(100% - 188px);
           padding: 8px 10px;
