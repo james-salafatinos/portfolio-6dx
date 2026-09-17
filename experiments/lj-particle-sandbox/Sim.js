@@ -21,15 +21,18 @@ export class Sim {
     this.count = 0;
 
     // Three species: A (cyan), B (coral), C (lime)
-    this.epsilon = new Float32Array([1.0, 1.15, 0.85]);
-    this.sigma = new Float32Array([1.0, 1.35, 0.75]);
-    this.mass = new Float32Array([1.0, 1.8, 0.55]);
+    // Soft defaults: gravity dominates visually; crank ε via GUI to go wild.
+    this.epsilon = new Float32Array([0.7, 0.8, 0.55]);
+    this.sigma = new Float32Array([1.0, 1.25, 0.8]);
+    this.mass = new Float32Array([1.0, 1.5, 0.7]);
 
-    this.gravity = 2.2;
-    this.dt = 0.004;
-    this.substeps = 2;
-    this.wallRestitution = 0.25;
-    this.linearDrag = 0.0008;
+    // Stiffer ε + moderate g: contacts support a pile; spawn spacing prevents blowups.
+    this.gravity = 4.8;
+    this.dt = 0.0035;
+    this.substeps = 3;
+    this.wallRestitution = 0.05;
+    // Stokes drag coeff in _integrate (F = -c v); terminal ≈ g/c.
+    this.linearDrag = 0.4;
 
     this._cellHeads = null;
     this._cellNext = new Int32Array(this.maxN);
@@ -87,8 +90,8 @@ export class Sim {
     const i = this.count++;
     this.x[i] = px;
     this.y[i] = py;
-    this.vx[i] = (Math.random() - 0.5) * 0.15;
-    this.vy[i] = (Math.random() - 0.5) * 0.15;
+    this.vx[i] = 0;
+    this.vy[i] = 0;
     this.fx[i] = 0;
     this.fy[i] = 0;
     this.species[i] = s;
@@ -189,6 +192,8 @@ export class Sim {
 
     const x = this.x;
     const y = this.y;
+    const vx = this.vx;
+    const vy = this.vy;
     const sp = this.species;
     const eps = this.epsilon;
     const sig = this.sigma;
@@ -261,6 +266,22 @@ export class Sim {
                 fx[j] -= fxPair;
                 fy[j] -= fyPair;
 
+                // Viscous contact damp when approaching (sand inelasticity)
+                const r = Math.sqrt(r2);
+                const invR = 1 / r;
+                const rvx = vx[j] - vx[i];
+                const rvy = vy[j] - vy[i];
+                const vn = (rvx * dx + rvy * dy) * invR;
+                if (vn < 0 && r < 1.2 * sigma) {
+                  const damp = 1.8 * vn; // along normal; vn<0
+                  const fxD = damp * dx * invR;
+                  const fyD = damp * dy * invR;
+                  fx[i] += fxD;
+                  fy[i] += fyD;
+                  fx[j] -= fxD;
+                  fy[j] -= fyD;
+                }
+
                 j = next[j];
               }
               i = next[i];
@@ -286,14 +307,20 @@ export class Sim {
     const fy = this.fy;
     const sp = this.species;
     const mass = this.mass;
-    const drag = 1 - this.linearDrag;
-    // Velocity Verlet: half-kick, drift, (forces refreshed externally between), half-kick
-    // Here forces are current; we kick fully with current forces then drift
-    // (symplectic Euler / leapfrog-style for speed):
+    // Stokes drag: F = -c v. Free-fall terminal ~ g*m/c stays large so pours drop,
+    // while jostling in a pile dissipates (sand-like). Stronger on horizontal.
+    const c = this.linearDrag;
+    const cX = c * 1.8;
     for (let i = 0; i < n; i++) {
       const invM = 1 / mass[sp[i]];
-      vx[i] = (vx[i] + fx[i] * invM * dt) * drag;
-      vy[i] = (vy[i] + fy[i] * invM * dt) * drag;
+      vx[i] += (fx[i] * invM - cX * vx[i]) * dt;
+      vy[i] += (fy[i] * invM - c * vy[i]) * dt;
+      const sp2 = vx[i] * vx[i] + vy[i] * vy[i];
+      if (sp2 > 1600) { // |v| > 40 anti-blowup; cranked ε can still look wild
+        const s = 40 / Math.sqrt(sp2);
+        vx[i] *= s;
+        vy[i] *= s;
+      }
       x[i] += vx[i] * dt;
       y[i] += vy[i] * dt;
     }
@@ -316,16 +343,24 @@ export class Sim {
       if (x[i] < r) {
         x[i] = r;
         if (vx[i] < 0) vx[i] *= -e;
+        if (Math.abs(vx[i]) < 0.6) vx[i] = 0;
       } else if (x[i] > w - r) {
         x[i] = w - r;
         if (vx[i] > 0) vx[i] *= -e;
+        if (Math.abs(vx[i]) < 0.6) vx[i] = 0;
       }
       if (y[i] < r) {
         y[i] = r;
         if (vy[i] < 0) vy[i] *= -e;
+        if (Math.abs(vy[i]) < 0.6) vy[i] = 0;
       } else if (y[i] > h - r) {
         y[i] = h - r;
-        if (vy[i] > 0) vy[i] *= -e;
+        if (vy[i] > 0) {
+          vy[i] *= -e;
+          if (Math.abs(vy[i]) < 1.2) vy[i] = 0; // sleep on floor
+        }
+        vx[i] *= 0.72; // floor friction
+        if (Math.abs(vx[i]) < 0.35) vx[i] = 0;
       }
     }
   }
