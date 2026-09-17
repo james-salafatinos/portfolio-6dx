@@ -132,49 +132,79 @@ export default class Experiment {
         font-variant-numeric: tabular-nums;
         max-width: 5.5em;
       }
-      /* Mobile: stay top-right — never cover the canvas floor / ground. */
+      /* Mobile: top-right only — never a bottom sheet over the floor. */
       .lj-gui-host.lj-gui-mobile {
         top: 10px;
         right: 8px;
         left: auto;
         bottom: auto;
-        max-width: min(210px, 48vw);
-        max-height: min(52vh, calc(100% - 24px));
+        max-width: min(168px, 44vw);
+        max-height: min(48vh, calc(100% - 24px));
         border-radius: 10px;
         border: 1px solid rgba(120,160,220,0.22);
         background: rgba(8,12,20,0.92);
         backdrop-filter: blur(10px);
-        transform: none;
       }
       .lj-gui-host.lj-gui-mobile .lil-gui {
         min-width: 0;
         width: 100%;
-        --name-width: 50%;
+        --name-width: 52%;
         font-size: 10px;
       }
-      .lj-species-bar {
+      .lj-hud {
         position: absolute;
+        left: 12px;
         top: 12px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 6;
-        display: flex;
-        gap: 8px;
-        padding: 6px 8px;
-        border-radius: 999px;
-        background: rgba(8,14,24,0.78);
+        z-index: 5;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: rgba(8,14,24,0.82);
         border: 1px solid rgba(120,160,220,0.28);
+        color: #cfe6ff;
+        font: 12px/1.4 ui-sans-serif, system-ui, sans-serif;
+        pointer-events: none;
+        max-width: min(340px, 72vw);
         backdrop-filter: blur(6px);
+      }
+      .lj-hud-title {
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        font-size: 14px;
+        color: #f0f7ff;
+      }
+      .lj-hud-purpose {
+        opacity: 0.9;
+        margin-top: 3px;
+        font-size: 12px;
+      }
+      .lj-hud-stats {
+        margin-top: 6px;
+        font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+        opacity: 0.9;
+      }
+      /* Species pills live INSIDE the HUD — no second absolute layer over the title. */
+      .lj-species-bar {
+        position: static;
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        backdrop-filter: none;
         pointer-events: auto;
+        transform: none;
+        left: auto;
+        top: auto;
       }
       .lj-species-btn {
         appearance: none;
         border: 2px solid transparent;
         border-radius: 999px;
-        min-width: 44px;
-        height: 34px;
-        padding: 0 12px;
-        font: 700 13px/1 ui-sans-serif, system-ui, sans-serif;
+        min-width: 40px;
+        height: 30px;
+        padding: 0 11px;
+        font: 700 12px/1 ui-sans-serif, system-ui, sans-serif;
         letter-spacing: 0.04em;
         cursor: pointer;
         color: #061018;
@@ -184,9 +214,9 @@ export default class Experiment {
       }
       .lj-species-btn[data-active="1"] {
         opacity: 1;
-        transform: scale(1.06);
+        transform: scale(1.05);
         border-color: #fff;
-        box-shadow: 0 0 0 2px rgba(255,255,255,0.25), 0 0 16px rgba(255,255,255,0.2);
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.25), 0 0 14px rgba(255,255,255,0.2);
       }
       .lj-hint {
         position: absolute;
@@ -197,7 +227,7 @@ export default class Experiment {
         max-width: min(420px, calc(100% - 24px));
         padding: 10px 14px;
         border-radius: 10px;
-        background: rgba(8,14,24,0.7);
+        background: rgba(8,14,24,0.72);
         border: 1px solid rgba(120,160,220,0.28);
         color: #d7ebff;
         font: 13px/1.35 ui-sans-serif, system-ui, sans-serif;
@@ -205,43 +235,47 @@ export default class Experiment {
         pointer-events: none;
         backdrop-filter: blur(6px);
       }
-      /* Hint stays low but does not sit under a bottom sheet. */
-      .lj-hint.lj-hint-raised {
-        bottom: 18px;
-      }
+      /* Clear fixed site chrome (← 6DX + notes) and top-right Controls. */
       @media (max-width: 720px), (max-height: 560px) {
-        /* Under HUD on the left — clear of top-right Controls and the floor */
-        .lj-species-bar {
-          top: 96px;
-          bottom: auto;
+        .lj-hud {
+          top: 58px;
           left: 12px;
-          right: auto;
-          transform: none;
+          max-width: calc(100% - 188px);
+          padding: 8px 10px;
         }
-        .lj-hud { max-width: min(280px, calc(100% - 230px)) !important; }
+        .lj-hud-title { font-size: 13px; }
+        .lj-hud-purpose { font-size: 11px; line-height: 1.35; }
+        .lj-hud-stats { font-size: 11px; }
+        .lj-species-btn {
+          min-width: 36px;
+          height: 28px;
+          padding: 0 9px;
+          font-size: 11px;
+        }
+        .lj-hint {
+          bottom: 14px;
+          padding: 8px 12px;
+          font-size: 12px;
+          max-width: calc(100% - 20px);
+        }
       }
-    `;
+        `;
     this.container.appendChild(style);
   }
 
   _buildHud() {
     const hud = document.createElement('div');
     hud.className = 'lj-hud';
-    hud.style.cssText = [
-      'position:absolute', 'left:12px', 'top:12px', 'z-index:5',
-      'padding:10px 12px', 'border-radius:8px',
-      'background:rgba(8,14,24,0.78)', 'border:1px solid rgba(120,160,220,0.28)',
-      'color:#cfe6ff', 'font:12px/1.4 ui-sans-serif,system-ui,sans-serif',
-      'pointer-events:none', 'max-width:min(340px,72vw)', 'backdrop-filter:blur(6px)',
-    ].join(';');
     hud.innerHTML = [
-      '<div style="font-weight:700;letter-spacing:0.03em;font-size:14px;color:#f0f7ff">LJ Particle Sandbox</div>',
-      '<div style="opacity:0.9;margin-top:3px;font-size:12px">Pour multi-species Lennard-Jones particles — soft-matter sand with live ε / σ / mass.</div>',
-      '<div id="lj-hud-stats" style="margin-top:6px;font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;opacity:0.9">N 0 / ' + MAX_N + '</div>',
+      '<div class="lj-hud-title">LJ Particle Sandbox</div>',
+      '<div class="lj-hud-purpose">Pour multi-species Lennard-Jones particles — soft-matter sand with live ε / σ / mass.</div>',
+      '<div id="lj-species-slot"></div>',
+      '<div id="lj-hud-stats" class="lj-hud-stats">N 0 / ' + MAX_N + '</div>',
     ].join('');
     this.container.appendChild(hud);
     this.hud = hud;
     this.hudStats = hud.querySelector('#lj-hud-stats');
+    this._speciesSlot = hud.querySelector('#lj-species-slot');
   }
 
   _buildHint() {
@@ -274,7 +308,8 @@ export default class Experiment {
       bar.appendChild(btn);
       return btn;
     });
-    this.container.appendChild(bar);
+    const host = this._speciesSlot || this.container;
+    host.appendChild(bar);
     this.speciesBar = bar;
   }
 
