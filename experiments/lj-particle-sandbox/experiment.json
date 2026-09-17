@@ -1,0 +1,9 @@
+{
+  "name": "LJ Particle Sandbox",
+  "slug": "lj-particle-sandbox",
+  "description": "Pour multi-species particles under continuous Lennard-Jones forces, gravity, and walls — a soft-matter sandbox with live ε / σ / mass controls.",
+  "entry": "App.js",
+  "type": "simulation",
+  "tags": ["lj", "particles", "soft-matter", "sandbox", "physics"],
+  "featured": false
+}
