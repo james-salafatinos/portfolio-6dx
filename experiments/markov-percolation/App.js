@@ -12,9 +12,12 @@ export default class Experiment {
     this.controls = null;
     this.game = null;
     this.gui = null;
+    this.guiHost = null;
     this.statsEl = null;
     this.settings = null;
     this._guiThresholdCtrl = null;
+    this._mq = null;
+    this._onViewportChange = this._onViewportChange.bind(this);
   }
 
   async start() {
@@ -50,14 +53,11 @@ export default class Experiment {
     this.controls.minDistance = 0.1;
     this.controls.maxDistance = 50;
 
+    this._injectStyles();
+
     const guiHost = document.createElement('div');
-    Object.assign(guiHost.style, {
-      position: 'absolute',
-      top: '10px',
-      right: '10px',
-      zIndex: '10',
-      maxWidth: 'min(220px, 46vw)',
-    });
+    guiHost.className = 'mp-gui-host';
+    this.guiHost = guiHost;
     this.container.appendChild(guiHost);
     this.gui = new GUI({ container: guiHost, title: 'Markov' });
 
@@ -104,7 +104,68 @@ export default class Experiment {
     });
     this.container.appendChild(this.statsEl);
 
+    this._mq = window.matchMedia('(max-width: 720px), (max-height: 560px)');
+    this._mq.addEventListener?.('change', this._onViewportChange);
+    this._onViewportChange();
+
     this.resize(this.container.clientWidth, this.container.clientHeight);
+  }
+
+  _injectStyles() {
+    if (this.container.querySelector('#mp-gui-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'mp-gui-styles';
+    style.textContent = `
+      .mp-gui-host {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+        max-width: min(245px, calc(100% - 20px));
+        max-height: min(92%, calc(100% - 20px));
+        overflow: auto;
+        box-sizing: border-box;
+      }
+      /* lil-gui defaults ~245px min-width — force it inside the host */
+      .mp-gui-host .lil-gui {
+        --name-width: 55%;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100%;
+        font-size: 11px;
+      }
+      .mp-gui-host .lil-gui .controller.number input {
+        font-variant-numeric: tabular-nums;
+        max-width: 4.5em;
+      }
+      .mp-gui-host .lil-gui .controller.button .name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Phone (~390px): keep top-right sibling DNA; fit full widgets on-screen */
+      .mp-gui-host.mp-gui-mobile {
+        top: 10px;
+        right: 8px;
+        left: auto;
+        bottom: auto;
+        max-width: min(168px, calc(100% - 16px));
+        max-height: min(55vh, calc(100% - 24px));
+      }
+      .mp-gui-host.mp-gui-mobile .lil-gui {
+        --name-width: 48%;
+        font-size: 10px;
+      }
+      .mp-gui-host.mp-gui-mobile .lil-gui .controller.number input {
+        max-width: 3.8em;
+      }
+    `;
+    this.container.appendChild(style);
+  }
+
+  _onViewportChange() {
+    const mobile = !!(this._mq?.matches);
+    this.guiHost?.classList.toggle('mp-gui-mobile', mobile);
   }
 
   update() {
@@ -136,13 +197,20 @@ export default class Experiment {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // Also react to experiment-shell size (not only window matchMedia)
+    if (this.guiHost) {
+      const narrow = w <= 720 || h <= 560;
+      this.guiHost.classList.toggle('mp-gui-mobile', narrow || !!(this._mq?.matches));
+    }
   }
 
   destroy() {
     this.renderer?.setAnimationLoop(null);
+    this._mq?.removeEventListener?.('change', this._onViewportChange);
     this.gui?.destroy();
     this.controls?.dispose();
     this.renderer?.dispose();
     this.container.replaceChildren();
+    this.guiHost = null;
   }
 }
