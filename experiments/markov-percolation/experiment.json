@@ -1,0 +1,9 @@
+{
+  "name": "Markov Percolation",
+  "slug": "markov-percolation",
+  "description": "A random walker on a 2D site-percolation lattice: below pc it traps in finite clusters; above pc it roams the giant component — heat map + MSD.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["percolation", "random-walk", "markov", "criticality"],
+  "featured": false
+}
