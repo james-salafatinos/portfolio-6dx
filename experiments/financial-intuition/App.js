@@ -261,6 +261,16 @@ export default class Experiment {
         width: 100%;
         height: 100%;
       }
+      /* Clear fixed site chrome (← 6DX + notes) so ticker stays tappable. */
+      @media (max-width: 720px), (max-height: 560px) {
+        .fi-hud {
+          /* Below fixed ← 6DX + notes (top:18px, ~38px tall + shadow) */
+          padding-top: 72px;
+          padding-bottom: 10px;
+          padding-left: 12px;
+          padding-right: 12px;
+        }
+      }
       @media (max-width: 420px) {
         .fi-meta { width: 100%; margin-left: 0; order: 5; }
         .fi-ticker { width: 4.5rem; }
