@@ -1,0 +1,9 @@
+{
+  "name": "Financial Intuition",
+  "slug": "financial-intuition",
+  "description": "Where does $1 of revenue go? Animate COGS / OpEx / residual and peek at cash, AR, inventory, and debt reservoirs.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["finance", "stocks-flows", "fundamentals", "canvas"],
+  "featured": false
+}
