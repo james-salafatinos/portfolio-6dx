@@ -1,10 +1,8 @@
 /**
  * Fetch → normalize → Statement.
- * Live: Alpha Vantage (CORS *). Demo key is reliable for IBM; anything else → demo.
+ * Live: same-origin GET /api/financials/:ticker (server proxies Fin-node).
+ * Any fail → bundled demo + Demo badge.
  */
-
-const AV_KEY = 'demo';
-const AV_BASE = 'https://www.alphavantage.co/query';
 
 /** Bundled AAPL-like annual snapshot (illustrative, not live). */
 export const DEMO_STATEMENT = {
@@ -25,98 +23,47 @@ export const DEMO_STATEMENT = {
   },
 };
 
-function num(v) {
-  if (v == null || v === 'None' || v === '') return 0;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+function isLiveStatement(payload) {
+  return (
+    payload &&
+    payload.source === 'live' &&
+    payload.income &&
+    Number(payload.income.revenue) > 0 &&
+    payload.balance
+  );
 }
 
-function normalize(ticker, source, asOf, incomeRaw, balanceRaw) {
-  const revenue = num(incomeRaw.totalRevenue ?? incomeRaw.revenue);
-  const cogs = num(
-    incomeRaw.costOfRevenue ??
-      incomeRaw.costofGoodsAndServicesSold ??
-      incomeRaw.cogs,
-  );
-  let opex = num(incomeRaw.operatingExpenses ?? incomeRaw.opex);
-  if (!opex) {
-    opex =
-      num(incomeRaw.sellingGeneralAndAdministrative) +
-      num(incomeRaw.researchAndDevelopment);
-  }
-  const operatingIncome = num(incomeRaw.operatingIncome);
-  if (!opex && revenue) {
-    opex = Math.max(0, revenue - cogs - operatingIncome);
-  }
-
-  const cash = num(
-    balanceRaw.cashAndCashEquivalentsAtCarryingValue ??
-      balanceRaw.cash ??
-      balanceRaw.cashAndShortTermInvestments,
-  );
-  const ar = num(
-    balanceRaw.currentNetReceivables ??
-      balanceRaw.netReceivables ??
-      balanceRaw.accountsReceivable,
-  );
-  const inventory = num(balanceRaw.inventory);
-  let debt = num(balanceRaw.shortLongTermDebtTotal);
-  if (!debt) {
-    debt = num(balanceRaw.shortTermDebt) + num(balanceRaw.longTermDebt);
-  }
-
-  return {
-    source,
-    asOf: asOf || null,
-    ticker,
-    income: { revenue, cogs, opex, operatingIncome },
-    balance: { cash, ar, inventory, debt },
-  };
-}
-
-async function fetchJson(url) {
+async function tryProxy(ticker) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 12_000);
   try {
-    const res = await fetch(url, {
+    const res = await fetch(`/api/financials/${encodeURIComponent(ticker)}`, {
       signal: ctrl.signal,
       headers: { Accept: 'application/json' },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const payload = await res.json();
+    if (!isLiveStatement(payload)) throw new Error('Invalid live payload');
+    return {
+      source: 'live',
+      asOf: payload.asOf || null,
+      ticker: payload.ticker || ticker,
+      income: {
+        revenue: Number(payload.income.revenue) || 0,
+        cogs: Number(payload.income.cogs) || 0,
+        opex: Number(payload.income.opex) || 0,
+        operatingIncome: Number(payload.income.operatingIncome) || 0,
+      },
+      balance: {
+        cash: Number(payload.balance.cash) || 0,
+        ar: Number(payload.balance.ar) || 0,
+        inventory: Number(payload.balance.inventory) || 0,
+        debt: Number(payload.balance.debt) || 0,
+      },
+    };
   } finally {
     clearTimeout(t);
   }
-}
-
-async function tryAlphaVantage(ticker) {
-  const incomeUrl = `${AV_BASE}?function=INCOME_STATEMENT&symbol=${encodeURIComponent(ticker)}&apikey=${AV_KEY}`;
-  const balanceUrl = `${AV_BASE}?function=BALANCE_SHEET&symbol=${encodeURIComponent(ticker)}&apikey=${AV_KEY}`;
-  const [incomePayload, balancePayload] = await Promise.all([
-    fetchJson(incomeUrl),
-    fetchJson(balanceUrl),
-  ]);
-
-  if (incomePayload?.Note || incomePayload?.Information || incomePayload?.['Error Message']) {
-    throw new Error(incomePayload.Note || incomePayload.Information || incomePayload['Error Message']);
-  }
-  if (balancePayload?.Note || balancePayload?.Information || balancePayload?.['Error Message']) {
-    throw new Error(balancePayload.Note || balancePayload.Information || balancePayload['Error Message']);
-  }
-
-  const incomeReports = incomePayload?.annualReports;
-  const balanceReports = balancePayload?.annualReports;
-  if (!Array.isArray(incomeReports) || !incomeReports.length) {
-    throw new Error('No income annualReports');
-  }
-  if (!Array.isArray(balanceReports) || !balanceReports.length) {
-    throw new Error('No balance annualReports');
-  }
-
-  const incomeRaw = incomeReports[0];
-  const balanceRaw = balanceReports[0];
-  const asOf = incomeRaw.fiscalDateEnding || balanceRaw.fiscalDateEnding || null;
-  return normalize(ticker, 'live', asOf, incomeRaw, balanceRaw);
 }
 
 export const DataAdapter = {
@@ -134,7 +81,7 @@ export const DataAdapter = {
     }
 
     try {
-      return await tryAlphaVantage(cleaned);
+      return await tryProxy(cleaned);
     } catch {
       return {
         ...DEMO_STATEMENT,

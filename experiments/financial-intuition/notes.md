@@ -10,7 +10,7 @@ Residual is labeled honestly: leftover after COGS + OpEx on the statement snapsh
 
 ## Data
 
-`DataAdapter` tries a **best-effort live** public fundamentals fetch (Alpha Vantage income + balance, CORS-friendly `apikey=demo`). That demo key typically returns full statements for **IBM** only; other tickers (or any network/CORS/parse failure) fall back to a bundled demo statement with a persistent **Demo — not live** badge. No server proxy — live is opportunistic, demo is the reliable path.
+Live fundamentals via same-origin `GET /api/financials/:ticker` (server proxies [Fin-node](https://www.fin-node.net)). Failures fall back to a bundled demo statement with a **Demo — not live** badge.
 
 ## Phone
 

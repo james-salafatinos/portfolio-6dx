@@ -153,15 +153,16 @@ export class JourneyView {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, w, h);
 
-    // title strip
+    // title strip (compact on phone so boxes keep height)
+    const narrow = w < 420;
     ctx.fillStyle = COLORS.muted;
-    ctx.font = `600 ${Math.max(11, Math.min(13, w * 0.032))}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.font = `600 ${narrow ? 10 : Math.max(11, Math.min(13, w * 0.032))}px ui-sans-serif, system-ui, sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText('Revenue → where $1 goes', 12, 16);
+    ctx.fillText(narrow ? '$1 journey' : 'Revenue → where $1 goes', 12, narrow ? 12 : 16);
     if (this.labels?.revenue) {
       ctx.textAlign = 'right';
       ctx.fillStyle = COLORS.text;
-      ctx.fillText(`Rev ${this.labels.revenue}`, w - 12, 16);
+      ctx.fillText(`Rev ${this.labels.revenue}`, w - 12, narrow ? 12 : 16);
     }
 
     // flow curves

@@ -35,3 +35,16 @@ test('server boots and serves home, health, dependencies, and every experiment',
     assert.equal(entry.status, 200, `${x.slug} entry`);
   }
 });
+
+
+test('financials API rejects empty ticker and returns JSON errors', async (t) => {
+  const server = createApp().listen(0);
+  t.after(() => server.close());
+  await new Promise((resolve) => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const bad = await fetch(`${base}/api/financials/!!!`);
+  assert.equal(bad.status, 404);
+  const badBody = await bad.json();
+  assert.equal(typeof badBody.error, 'string');
+});

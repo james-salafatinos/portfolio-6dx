@@ -27,9 +27,10 @@ export default class Experiment {
     root.innerHTML = `
       <div class="fi-shell">
         <header class="fi-hud">
+          <p class="fi-purpose">$1 → COGS / OpEx / residual</p>
           <label class="fi-ticker-wrap">
             <span class="fi-label">Ticker</span>
-            <input class="fi-ticker" type="text" maxlength="12" value="IBM" spellcheck="false" autocomplete="off" enterkeyhint="go" aria-label="Ticker symbol" />
+            <input class="fi-ticker" type="text" maxlength="12" value="AAPL" spellcheck="false" autocomplete="off" enterkeyhint="go" aria-label="Ticker symbol" />
           </label>
           <button type="button" class="fi-btn fi-load">Load</button>
           <button type="button" class="fi-btn fi-replay" disabled>Replay $1</button>
@@ -64,7 +65,7 @@ export default class Experiment {
     this.tickerInput.addEventListener('keydown', this._onKey);
 
     this.resize(root.clientWidth, root.clientHeight);
-    await this._loadTicker(this.tickerInput.value || 'IBM');
+    await this._loadTicker(this.tickerInput.value || 'AAPL');
   }
 
   resize(width, height) {
@@ -139,12 +140,15 @@ export default class Experiment {
       this.meta.textContent = `${src}${asOf}`;
 
       this.replayBtn.disabled = false;
+      // HUD height may change (demo badge); keep panels inside the viewport.
+      this.resize(this.container.clientWidth, this.container.clientHeight);
       // Auto-play once so the journey is obvious on first load.
       this.journey.play(this.model.shares);
     } catch (err) {
       console.error(err);
       this.meta.textContent = 'Load failed';
       this._applySourceBadge({ source: 'demo' });
+      this.resize(this.container.clientWidth, this.container.clientHeight);
     } finally {
       this._loading = false;
       this.loadBtn.disabled = false;
@@ -261,19 +265,60 @@ export default class Experiment {
         width: 100%;
         height: 100%;
       }
+      .fi-hud { position: relative; }
+      .fi-purpose {
+        display: none;
+        color: #8b95a8;
+        font-size: 11px;
+        line-height: 1.3;
+        margin: 0;
+      }
       /* Clear fixed site chrome (← 6DX + notes) so ticker stays tappable. */
       @media (max-width: 720px), (max-height: 560px) {
         .fi-hud {
           /* Below fixed ← 6DX + notes (top:18px, ~38px tall + shadow) */
           padding-top: 72px;
-          padding-bottom: 10px;
+          padding-bottom: 8px;
           padding-left: 12px;
           padding-right: 12px;
+          gap: 6px;
+        }
+        /* Badge rides in the chrome clearance band — no extra HUD row. */
+        .fi-badge:not([hidden]) {
+          position: absolute;
+          top: 22px;
+          right: 12px;
+          padding: 5px 8px;
+          font-size: 10px;
+        }
+        .fi-purpose {
+          display: block;
+          /* Between notes (ends ~128) and demo badge (right band); clears ← 6DX. */
+          position: absolute;
+          left: 136px;
+          right: 126px;
+          top: 28px;
+          width: auto;
+          margin: 0;
+          font-size: 11px;
+          line-height: 1.25;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          pointer-events: none;
+        }
+        .fi-label { display: none; }
+        .fi-meta {
+          margin-left: 0;
+          font-size: 11px;
+          flex: 1 1 auto;
+          min-width: 0;
         }
       }
       @media (max-width: 420px) {
-        .fi-meta { width: 100%; margin-left: 0; order: 5; }
-        .fi-ticker { width: 4.5rem; }
+        .fi-ticker { width: 4.2rem; padding: 7px 8px; }
+        .fi-btn { padding: 7px 10px; min-height: 34px; font-size: 12px; }
+        .fi-purpose { font-size: 10px; left: 136px; right: 126px; }
       }
     `;
     this.container.appendChild(style);

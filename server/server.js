@@ -17,6 +17,96 @@ function createApp() {
   app.use('/vendor/mathjax', express.static(path.join(ROOT, 'node_modules', 'mathjax')));
 
   app.get('/health', (_req, res) => res.json({ ok: true }));
+
+  function numField(v) {
+    if (v == null || v === 'None' || v === '') return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function mapFinNodeStatement(ticker, payload) {
+    const incomeArr =
+      payload?.statements?.income_statement ||
+      payload?.income_statement ||
+      null;
+    const balanceArr =
+      payload?.statements?.balance_sheet ||
+      payload?.balance_sheet ||
+      null;
+    if (!Array.isArray(incomeArr) || !incomeArr.length) return null;
+    if (!Array.isArray(balanceArr) || !balanceArr.length) return null;
+
+    const incomeRaw = incomeArr[0];
+    const balanceRaw = balanceArr[0];
+
+    const revenue = numField(incomeRaw['Total Revenue']);
+    const cogs = numField(incomeRaw['Cost Of Revenue']);
+    const opex = numField(incomeRaw['Operating Expense']);
+    const operatingIncome = numField(incomeRaw['Operating Income']);
+
+    const cash = numField(balanceRaw['Cash And Cash Equivalents']);
+    const ar = numField(balanceRaw['Accounts Receivable']);
+    const inventory = numField(balanceRaw['Inventory']);
+    let debt = numField(balanceRaw['Total Debt']);
+    if (!debt) {
+      debt =
+        numField(balanceRaw['Current Debt']) +
+        numField(balanceRaw['Long Term Debt']);
+    }
+
+    // Require a usable income snapshot; zero revenue is treated as missing.
+    if (!revenue) return null;
+
+    const asOf = incomeRaw.date || balanceRaw.date || payload.updated || null;
+
+    return {
+      source: 'live',
+      asOf,
+      ticker,
+      income: { revenue, cogs, opex, operatingIncome },
+      balance: { cash, ar, inventory, debt },
+    };
+  }
+
+  app.get('/api/financials/:ticker', async (req, res) => {
+    const ticker = String(req.params.ticker || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9.\-]/g, '');
+    if (!ticker) {
+      return res.status(404).json({ error: 'Missing ticker' });
+    }
+
+    const url = `https://www.fin-node.net/api/${encodeURIComponent(ticker)}.json`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12_000);
+    try {
+      const upstream = await fetch(url, {
+        signal: ctrl.signal,
+        headers: { Accept: 'application/json' },
+      });
+      if (upstream.status === 404) {
+        return res.status(404).json({ error: 'Ticker not found' });
+      }
+      if (!upstream.ok) {
+        return res.status(502).json({ error: `Upstream HTTP ${upstream.status}` });
+      }
+      const payload = await upstream.json();
+      const mapped = mapFinNodeStatement(ticker, payload);
+      if (!mapped) {
+        return res.status(404).json({ error: 'No financial statements for ticker' });
+      }
+      return res.json(mapped);
+    } catch (err) {
+      const aborted = err?.name === 'AbortError';
+      return res.status(502).json({
+        error: aborted ? 'Upstream timeout' : 'Upstream fetch failed',
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+
   app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
   app.get('/', (_req, res) => {

@@ -66,14 +66,15 @@ export class ReservoirView {
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, w, h);
 
+    const narrow = w < 420 || h < 280;
     ctx.fillStyle = COLORS.muted;
-    ctx.font = `600 ${Math.max(11, Math.min(13, w * 0.032))}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.font = `600 ${narrow ? 10 : Math.max(11, Math.min(13, w * 0.032))}px ui-sans-serif, system-ui, sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText('Balance sheet reservoirs (relative)', 12, 16);
+    ctx.fillText(narrow ? 'Reservoirs (relative)' : 'Balance sheet reservoirs (relative)', 12, narrow ? 12 : 16);
 
-    const padX = 12;
-    const padTop = 28;
-    const padBot = 14;
+    const padX = 10;
+    const padTop = narrow ? 18 : 28;
+    const padBot = narrow ? 8 : 14;
     const gap = Math.max(8, w * 0.02);
     const n = ORDER.length;
     const tankW = (w - padX * 2 - gap * (n - 1)) / n;
@@ -90,8 +91,9 @@ export class ReservoirView {
   _drawTank(x, y, tw, th, level, spec) {
     const ctx = this.ctx;
     const r = 8;
-    const labelH = 32;
-    const bodyH = th - labelH;
+    const narrow = this.cssW < 420 || this.cssH < 280;
+    const labelH = narrow ? 26 : 32;
+    const bodyH = Math.max(12, th - labelH);
     const bodyY = y;
 
     // tank body
@@ -125,13 +127,13 @@ export class ReservoirView {
     // title + value under tank
     ctx.textAlign = 'center';
     ctx.fillStyle = spec.color;
-    ctx.font = `600 ${Math.max(10, Math.min(12, tw * 0.18))}px ui-sans-serif, system-ui, sans-serif`;
-    ctx.fillText(spec.title, x + tw / 2, y + bodyH + 14);
+    ctx.font = `600 ${Math.max(9, Math.min(12, tw * 0.18))}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.fillText(spec.title, x + tw / 2, y + bodyH + (narrow ? 11 : 14));
 
     const money = this.labels?.[spec.key] || '';
     ctx.fillStyle = COLORS.muted;
-    ctx.font = `${Math.max(9, Math.min(11, tw * 0.15))}px ui-sans-serif, system-ui, sans-serif`;
-    ctx.fillText(String(money).slice(0, 12), x + tw / 2, y + bodyH + 28);
+    ctx.font = `${Math.max(8, Math.min(11, tw * 0.15))}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.fillText(String(money).slice(0, narrow ? 9 : 12), x + tw / 2, y + bodyH + (narrow ? 22 : 28));
   }
 
   _roundRect(x, y, w, h, r) {
