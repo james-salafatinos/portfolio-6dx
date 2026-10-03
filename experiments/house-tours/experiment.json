@@ -1,0 +1,9 @@
+{
+  "name": "House Tours",
+  "slug": "house-tours",
+  "description": "Open-house day notebook: itinerary cards, fast notes, 1–5 scores, and a side-by-side compare. Photos stay on this device.",
+  "entry": "App.js",
+  "type": "tool",
+  "tags": ["open-house", "notes", "mobile"],
+  "featured": false
+}
