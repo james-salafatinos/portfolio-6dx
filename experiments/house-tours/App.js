@@ -41,6 +41,18 @@ function safeSrc(url) {
   return url;
 }
 
+function listingThumb(url) {
+  if (typeof url !== 'string' || !url.startsWith('https://photos.zillowstatic.com/')) return '';
+  if (/["'<>\s]/.test(url)) return '';
+  return url;
+}
+
+function zillowHref(url) {
+  if (typeof url !== 'string' || !url.startsWith('https://www.zillow.com/homedetails/')) return '';
+  if (/["'<>\s]/.test(url)) return '';
+  return url;
+}
+
 function parseRoute() {
   let path = (location.hash || '').replace(/^#/, '');
   if (!path || path === '/') return { name: 'home' };
@@ -149,6 +161,13 @@ const CSS = `
 }
 .ht-address { margin: 0; font-size: 18px; line-height: 1.25; }
 .ht-meta { margin: 4px 0 0; color: #5e584f; font-size: 15px; }
+.ht-zillow {
+  display: inline-block;
+  margin-top: 6px;
+  color: #7d3b16;
+  font-weight: 800;
+  font-size: 15px;
+}
 .ht-chip { margin: 8px 0 0; font-size: 15px; font-weight: 800; }
 .ht-love { color: #17693f; }
 .ht-maybe { color: #8a5a00; }
@@ -411,13 +430,13 @@ export default class Experiment {
       <section class="ht-card" data-add>
         <h2 class="ht-kicker">Add a stop</h2>
         <label class="ht-field">Address
-          <textarea data-edit="address" rows="2" maxlength="240" placeholder="2534 W Homer St, Chicago, IL 60647"></textarea>
+          <textarea data-edit="address" rows="2" maxlength="240" placeholder="109 Grove Ave, Glen Ellyn, IL 60137"></textarea>
         </label>
         <label class="ht-field">Open-house time
-          <input data-edit="time" type="text" maxlength="80" placeholder="Sat 12–2pm" />
+          <input data-edit="time" type="text" maxlength="80" placeholder="Sat 11:00am–12:30pm" />
         </label>
         <label class="ht-field">Asking price
-          <input data-edit="price" type="text" maxlength="40" placeholder="$875,000" />
+          <input data-edit="price" type="text" maxlength="40" placeholder="$799,000" />
         </label>
         <button type="button" class="ht-btn ht-primary ht-wide" data-action="add">Add stop</button>
       </section>
@@ -431,11 +450,12 @@ export default class Experiment {
   cardMarkup(house) {
     const note = noteFor(this.doc, house.id);
     const filled = noteHasContent(note);
-    const src = safeSrc(house.photos[0]);
+    const src = listingThumb(house.thumbnail) || safeSrc(house.photos[0]);
     const thumb = src
       ? `<img class="ht-thumb" alt="" src="${src}" draggable="false" />`
       : '<div class="ht-thumb ht-ph" aria-hidden="true">No photo</div>';
     const facts = [house.time, house.price].filter(Boolean).join(' · ');
+    const zillow = zillowHref(house.zillowUrl);
     if (this.editingId === house.id) {
       return `<article class="ht-card" data-house="${esc(house.id)}">
         ${fieldControl(house, 'address', 'Address', house.address, true)}
@@ -456,6 +476,8 @@ export default class Experiment {
         <div>
           <h2 class="ht-address">${esc(house.address || 'Untitled stop')}</h2>
           ${facts ? `<p class="ht-meta">${esc(facts)}</p>` : ''}
+          ${house.details ? `<p class="ht-meta">${esc(house.details)}</p>` : ''}
+          ${zillow ? `<a class="ht-zillow" href="${esc(zillow)}" target="_blank" rel="noopener noreferrer">Zillow</a>` : ''}
           ${filled && note.status ? `<p class="ht-chip ht-${esc(note.status)}">${esc(statusLabel(note.status))}</p>` : ''}
           ${filled ? `<p class="ht-scoreline">${esc(scoreLine(note))}</p>` : ''}
         </div>

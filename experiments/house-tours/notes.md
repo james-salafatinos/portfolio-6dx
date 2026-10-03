@@ -6,8 +6,8 @@ A pocket notebook for walking open houses. Stops stay in itinerary order. Rating
 ## Controls / behavior
 Open https://vec3.me/x/house-tours (locally, `/x/house-tours`).
 
-- Home is `#/`. The first visit with an empty `house-tours-v1` localStorage key seeds three Chicago-area stops so the page is usable immediately.
-- Each card shows the address, open-house time, asking price, and a thumbnail (or a placeholder). **Open Notes** goes to `#/note/:id`.
+- Home is `#/`. The first visit with an empty `house-tours-v2` localStorage key seeds five Saturday, October 3, 2026 open houses, in itinerary order: 109 Grove Ave (Glen Ellyn), 250 Knoll St (Wheaton), 841 Bloomingdale Rd (Glen Ellyn), 83 N Park Blvd (Glen Ellyn), and 1525 W Wiesbrook Rd (Wheaton). The older `house-tours-v1` demo key is unused and is not migrated.
+- Each card shows the address, the Saturday open-house window, asking price, beds/baths/sqft, a listing thumbnail, and a Zillow link. **Open Notes** goes to `#/note/:id`.
 - Add, edit, or remove a stop from home. Removing a stop deletes its notes. That is the whole address book — not a CRM.
 - The note page is large tap targets and textareas: overall impression, pros, cons, must-fix issues, neighborhood/lot, kitchen, bedrooms/bathrooms, basement, and commute/location. Notes autosave on change.
 - Rate House, Location, Yard, Layout, Condition, and Value from 1 to 5 with big buttons. Pick one of Love it / Maybe / No. Answer whether you would make an offer (Yes / No / Unsure).

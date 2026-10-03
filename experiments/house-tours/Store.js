@@ -1,5 +1,6 @@
 // One localStorage document: itinerary order plus notes keyed by house id.
-export const STORAGE_KEY = 'house-tours-v1';
+// house-tours-v2 is the real Glen Ellyn / Wheaton seed. house-tours-v1 is unused and is not migrated.
+export const STORAGE_KEY = 'house-tours-v2';
 export const MAX_PHOTOS = 8;
 export const MAX_BYTES = 2 * 1024 * 1024;
 
@@ -43,24 +44,53 @@ function seedDoc() {
   return {
     houses: [
       {
-        id: 'homer',
-        address: '2534 W Homer St, Chicago, IL 60647',
-        time: 'Sat 12–2pm',
-        price: '$875,000',
+        id: 'grove',
+        address: '109 Grove Ave, Glen Ellyn, IL 60137',
+        time: 'Sat 11:00am–12:30pm',
+        price: '$799,000',
+        details: '4 bd / 3 ba / 2,494 sqft',
+        thumbnail: 'https://photos.zillowstatic.com/fp/079073f19d1bf335ef83c9e2e2a2cadd-p_e.jpg',
+        zillowUrl: 'https://www.zillow.com/homedetails/109-Grove-Ave-Glen-Ellyn-IL-60137/4439300_zpid/',
         photos: [],
       },
       {
-        id: 'maple',
-        address: '1210 Maple Ave, Evanston, IL 60202',
-        time: 'Sun 11am–1pm',
-        price: '$759,000',
+        id: 'knoll',
+        address: '250 Knoll St, Wheaton, IL 60187',
+        time: 'Sat 12:00–2:00pm',
+        price: '$725,000',
+        details: '4 bd / 4 ba / 2,260 sqft',
+        thumbnail: 'https://photos.zillowstatic.com/fp/055d77a0cf1b4942889737e4f1aba68b-p_e.jpg',
+        zillowUrl: 'https://www.zillow.com/homedetails/250-Knoll-St-Wheaton-IL-60187/4445469_zpid/',
         photos: [],
       },
       {
-        id: 'elmwood',
-        address: '418 N Elmwood Ave, Oak Park, IL 60302',
-        time: 'Sun 2–4pm',
-        price: '$639,000',
+        id: 'bloom',
+        address: '841 Bloomingdale Rd, Glen Ellyn, IL 60137',
+        time: 'Sat 11:00am–1:00pm',
+        price: '$600,000',
+        details: '3 bd / 3 ba / 2,528 sqft',
+        thumbnail: 'https://photos.zillowstatic.com/fp/8920e1aac030e8aaa37200fd6030e9e0-p_e.jpg',
+        zillowUrl: 'https://www.zillow.com/homedetails/841-Bloomingdale-Rd-Glen-Ellyn-IL-60137/4430532_zpid/',
+        photos: [],
+      },
+      {
+        id: 'park',
+        address: '83 N Park Blvd, Glen Ellyn, IL 60137',
+        time: 'Sat 1:00–3:00pm',
+        price: '$780,000',
+        details: '4 bd / 3 ba / 3,346 sqft',
+        thumbnail: 'https://photos.zillowstatic.com/fp/39ecc8e9beada28ea49692a6e7075e8c-p_e.jpg',
+        zillowUrl: 'https://www.zillow.com/homedetails/83-N-Park-Blvd-Glen-Ellyn-IL-60137/4441117_zpid/',
+        photos: [],
+      },
+      {
+        id: 'wiesbrook',
+        address: '1525 W Wiesbrook Rd, Wheaton, IL 60189',
+        time: 'Sat 12:00–3:00pm',
+        price: '$734,000',
+        details: '4 bd / 3 ba / 2,141 sqft',
+        thumbnail: 'https://photos.zillowstatic.com/fp/677ba37d44087b96ccd6bbfc89eb1b85-p_e.jpg',
+        zillowUrl: 'https://www.zillow.com/homedetails/1525-W-Wiesbrook-Rd-Wheaton-IL-60189/4448026_zpid/',
         photos: [],
       },
     ],
@@ -111,6 +141,11 @@ function isJpegDataUrl(value) {
   return typeof value === 'string' && value.startsWith('data:image/jpeg;base64,') && !/["'<>\s]/.test(value);
 }
 
+function safeRemote(value, prefix) {
+  if (typeof value !== 'string' || !value.startsWith(prefix) || /["'<>\s]/.test(value)) return '';
+  return value;
+}
+
 function normalize(parsed) {
   if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.houses)) return null;
   const houses = [];
@@ -126,6 +161,9 @@ function normalize(parsed) {
       address: typeof house.address === 'string' ? house.address : '',
       time: typeof house.time === 'string' ? house.time : '',
       price: typeof house.price === 'string' ? house.price : '',
+      details: typeof house.details === 'string' ? house.details : '',
+      thumbnail: safeRemote(house.thumbnail, 'https://photos.zillowstatic.com/'),
+      zillowUrl: safeRemote(house.zillowUrl, 'https://www.zillow.com/'),
       photos,
     });
   }
