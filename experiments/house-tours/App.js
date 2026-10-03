@@ -421,6 +421,7 @@ export default class Experiment {
     const cards = this.doc.houses.map((house) => this.cardMarkup(house)).join('');
     const columns = this.doc.houses.map((house) => this.compareMarkup(house)).join('');
     const noun = count === 1 ? 'stop' : 'stops';
+    const addDefaults = { address: '', time: '', price: '' };
     return `<div class="ht-page">
       <h1>House Tours</h1>
       <p class="ht-lead">${count} ${noun} today. Notes stay on this phone.</p>
@@ -430,13 +431,13 @@ export default class Experiment {
       <section class="ht-card" data-add>
         <h2 class="ht-kicker">Add a stop</h2>
         <label class="ht-field">Address
-          <textarea data-edit="address" rows="2" maxlength="240" placeholder="Address"></textarea>
+          <textarea data-edit="address" rows="2" maxlength="240" autocomplete="off" placeholder="Address">${esc(addDefaults.address)}</textarea>
         </label>
         <label class="ht-field">Open-house time
-          <input data-edit="time" type="text" maxlength="80" placeholder="Open-house time" />
+          <input data-edit="time" type="text" maxlength="80" autocomplete="off" value="${esc(addDefaults.time)}" placeholder="Open-house time" />
         </label>
         <label class="ht-field">Asking price
-          <input data-edit="price" type="text" maxlength="40" placeholder="Asking price" />
+          <input data-edit="price" type="text" maxlength="40" autocomplete="off" value="${esc(addDefaults.price)}" placeholder="Asking price" />
         </label>
         <button type="button" class="ht-btn ht-primary ht-wide" data-action="add">Add stop</button>
       </section>
