@@ -430,13 +430,13 @@ export default class Experiment {
       <section class="ht-card" data-add>
         <h2 class="ht-kicker">Add a stop</h2>
         <label class="ht-field">Address
-          <textarea data-edit="address" rows="2" maxlength="240" placeholder="109 Grove Ave, Glen Ellyn, IL 60137"></textarea>
+          <textarea data-edit="address" rows="2" maxlength="240" placeholder="Address"></textarea>
         </label>
         <label class="ht-field">Open-house time
-          <input data-edit="time" type="text" maxlength="80" placeholder="Sat 11:00am–12:30pm" />
+          <input data-edit="time" type="text" maxlength="80" placeholder="Open-house time" />
         </label>
         <label class="ht-field">Asking price
-          <input data-edit="price" type="text" maxlength="40" placeholder="$799,000" />
+          <input data-edit="price" type="text" maxlength="40" placeholder="Asking price" />
         </label>
         <button type="button" class="ht-btn ht-primary ht-wide" data-action="add">Add stop</button>
       </section>
