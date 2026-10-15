@@ -1,0 +1,9 @@
+{
+  "name": "Factorio Production Network",
+  "slug": "factorio-production-network",
+  "description": "A provenance-backed map of base-game materials, recipes, machines, and fuel compatibility in Factorio.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["factorio", "directed-graph", "production", "data-exploration"],
+  "featured": false
+}
