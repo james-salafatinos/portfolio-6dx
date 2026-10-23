@@ -1,0 +1,9 @@
+{
+  "name": "Causal Percolative WFC",
+  "slug": "causal-percolative-wfc",
+  "description": "A seeded collapse front propagates through a bond-percolation lattice while a temperature-controlled Markov kernel paints its causal history.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["percolation", "causal-graph", "markov", "phase-transition", "three.js"],
+  "featured": false
+}
