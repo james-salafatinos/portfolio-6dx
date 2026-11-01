@@ -74,29 +74,29 @@ export default class ChicagoCollageSalon {
         <div class="ccs-webgl" aria-label="Spatial gallery of ${ARTWORKS.length} collage works"></div>
         <div class="ccs-vignette" aria-hidden="true"></div>
         <header class="ccs-masthead">
-          <span class="ccs-kicker">Digital salon / 2026</span>
-          <div class="ccs-title"><strong>Chicago Collage Salon</strong><span>${ARTWORKS.length} works · one rearrangeable room</span></div>
-          <a class="ccs-source" href="${SOURCE_PAGE}" target="_blank" rel="noopener noreferrer">Source ↗</a>
+          <span class="ccs-kicker">A digital cut-and-paste room</span>
+          <div class="ccs-title"><strong>Chicago Collage Salon</strong><span>${ARTWORKS.length} scraps · one rearrangeable room</span></div>
+          <a class="ccs-source" href="${SOURCE_PAGE}" target="_blank" rel="noopener noreferrer">Source ledger ↗</a>
         </header>
         <nav class="ccs-layouts" aria-label="Exhibition arrangements and camera controls">
-          <span>Rearrange room</span>
+          <span>Rehang the room</span>
           ${LAYOUTS.map((name, index) => `<button type="button" data-layout="${name}" data-key="${index + 1}">${LAYOUT_LABELS[name]}</button>`).join('')}
           <hr>
-          <span>Move through it</span>
-          <button type="button" data-camera="overview">All works</button>
-          <button type="button" data-camera="closer">Closer +</button>
-          <button type="button" data-camera="farther">Further −</button>
+          <span>Wander</span>
+          <button type="button" data-camera="overview">Whole wall</button>
+          <button type="button" data-camera="closer">Lean in +</button>
+          <button type="button" data-camera="farther">Step back −</button>
         </nav>
-        <button class="ccs-analysis-toggle" type="button" aria-expanded="false">Analyze / search</button>
+        <button class="ccs-analysis-toggle" type="button" aria-expanded="false">Rummage the archive</button>
         <section class="ccs-analysis" aria-label="Collection analysis" aria-hidden="true">
-          <div class="ccs-analysis-head"><span>Curatorial tools</span><button type="button" data-analysis-close aria-label="Close analysis">×</button></div>
-          <label>Artist search<input type="search" data-analysis="artist" list="ccs-artists" placeholder="Type an artist name"></label>
+          <div class="ccs-analysis-head"><span>Curator's worktable</span><button type="button" data-analysis-close aria-label="Close analysis">×</button></div>
+          <label>Find a maker<input type="search" data-analysis="artist" list="ccs-artists" placeholder="Name or handle…"></label>
           <datalist id="ccs-artists"></datalist>
-          <label>Arrange wall<select data-analysis="sort"><option value="source">Source order</option><option value="color">Color spectrum</option><option value="author">Author A–Z</option></select></label>
-          <label>Color family<select data-analysis="color"><option value="all">All colors</option>${COLOR_FAMILIES.map((family) => `<option value="${family}">${family}</option>`).join('')}</select></label>
+          <label>Shuffle the wall<select data-analysis="sort"><option value="source">Source order</option><option value="color">Color spectrum</option><option value="author">Maker A–Z</option></select></label>
+          <label>Pull a color pile<select data-analysis="color"><option value="all">Every color</option>${COLOR_FAMILIES.map((family) => `<option value="${family}">${family}</option>`).join('')}</select></label>
           <div class="ccs-color-key">${COLOR_FAMILIES.slice(0, 8).map((family) => `<button type="button" data-color-chip="${family}" style="--chip:${family.toLowerCase()}">${family}</button>`).join('')}</div>
-          <button class="ccs-analysis-reset" type="button" data-analysis-reset>Reset filters</button>
-          <p><b data-analysis-count>${ARTWORKS.length}</b> works shown · Color map uses a similarity embedding of each image palette.</p>
+          <button class="ccs-analysis-reset" type="button" data-analysis-reset>Put everything back</button>
+          <p><b data-analysis-count>${ARTWORKS.length}</b> works on the table · The color map gathers kindred palettes.</p>
         </section>
         <figure class="ccs-focus-card" aria-hidden="true">
           <div class="ccs-focus-image"><img alt=""></div>
@@ -109,15 +109,15 @@ export default class ChicagoCollageSalon {
           <dl><div><dt>Work</dt><dd data-field="number"></dd></div><div><dt>Original</dt><dd data-field="dimensions"></dd></div><div><dt>Palette</dt><dd class="ccs-palette" data-field="color"><i></i><span></span></dd></div></dl>
           <div class="ccs-inspector-actions">
             <button type="button" data-step="-1">← Previous</button>
-            <button type="button" data-camera="overview">All works</button>
+            <button type="button" data-camera="overview">Whole wall</button>
             <button type="button" data-step="1">Next →</button>
             <a target="_blank" rel="noopener noreferrer">Original ↗</a>
           </div>
         </aside>
         <footer class="ccs-footer">
           <div class="ccs-status" aria-live="polite"><b>Salon</b> arrangement · ${ARTWORKS.length} works</div>
-          <button class="ccs-drift" type="button" aria-pressed="false">Drift: off</button>
-          <div class="ccs-hint">Drag to orbit · scroll/pinch to zoom · select a work to inspect</div>
+          <button class="ccs-drift" type="button" aria-pressed="false">Wander: off</button>
+          <div class="ccs-hint">Drag the room · pinch to lean in · tap a scrap to hold it up</div>
         </footer>
       </main>`;
 
@@ -572,7 +572,7 @@ export default class ChicagoCollageSalon {
     this.driftButton.addEventListener('click', () => {
       this.drift = !this.drift;
       this.driftButton.setAttribute('aria-pressed', String(this.drift));
-      this.driftButton.textContent = `Drift: ${this.drift ? 'on' : 'off'}`;
+      this.driftButton.textContent = `Wander: ${this.drift ? 'on' : 'off'}`;
       this.lastDrift = performance.now();
     });
   }
