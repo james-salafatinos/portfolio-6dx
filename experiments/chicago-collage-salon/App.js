@@ -1,8 +1,11 @@
 import * as THREE from '/vendor/three/build/three.module.js';
 import { ARTWORKS, SOURCE_PAGE } from './Artworks.js';
+import { COLOR_DATA } from './ColorData.js';
 
 const STYLE_ID = 'chicago-collage-salon-styles';
-const LAYOUTS = ['salon', 'spiral', 'globe', 'ribbon'];
+const LAYOUTS = ['salon', 'spiral', 'globe', 'ribbon', 'color-map'];
+const LAYOUT_LABELS = { salon: 'Salon', spiral: 'Spiral', globe: 'Globe', ribbon: 'Ribbon', 'color-map': 'Color map' };
+const COLOR_FAMILIES = ['Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Pink', 'Neutral', 'Dark', 'Light'];
 const CARD_WIDTH = 240;
 const CARD_HEIGHT = 320;
 const ATLAS_COLUMNS = 20;
@@ -14,10 +17,18 @@ function target(position, scale = 1) {
   return { position, scale };
 }
 
+function creditedArtist(artist) {
+  return /^unknown(?: artist)?$/i.test(artist) ? 'Uncredited at source' : artist;
+}
+
 export default class ChicagoCollageSalon {
   constructor(container) {
     this.container = container;
-    this.cards = ARTWORKS.map((artwork, index) => ({ artwork, index, position: new THREE.Vector3(), scale: 1 }));
+    this.cards = ARTWORKS.map((artwork, index) => ({ artwork, color: COLOR_DATA[index], index, position: new THREE.Vector3(), scale: 1 }));
+    this.filteredCards = [...this.cards];
+    this.orderMode = 'source';
+    this.authorQuery = '';
+    this.colorFilter = 'all';
     this.layout = 'salon';
     this.transition = null;
     this.pointers = new Map();
@@ -69,13 +80,24 @@ export default class ChicagoCollageSalon {
         </header>
         <nav class="ccs-layouts" aria-label="Exhibition arrangements and camera controls">
           <span>Rearrange room</span>
-          ${LAYOUTS.map((name, index) => `<button type="button" data-layout="${name}" data-key="${index + 1}">${name}</button>`).join('')}
+          ${LAYOUTS.map((name, index) => `<button type="button" data-layout="${name}" data-key="${index + 1}">${LAYOUT_LABELS[name]}</button>`).join('')}
           <hr>
           <span>Move through it</span>
           <button type="button" data-camera="overview">All works</button>
           <button type="button" data-camera="closer">Closer +</button>
           <button type="button" data-camera="farther">Further −</button>
         </nav>
+        <button class="ccs-analysis-toggle" type="button" aria-expanded="false">Analyze / search</button>
+        <section class="ccs-analysis" aria-label="Collection analysis" aria-hidden="true">
+          <div class="ccs-analysis-head"><span>Curatorial tools</span><button type="button" data-analysis-close aria-label="Close analysis">×</button></div>
+          <label>Artist search<input type="search" data-analysis="artist" list="ccs-artists" placeholder="Type an artist name"></label>
+          <datalist id="ccs-artists"></datalist>
+          <label>Arrange wall<select data-analysis="sort"><option value="source">Source order</option><option value="color">Color spectrum</option><option value="author">Author A–Z</option></select></label>
+          <label>Color family<select data-analysis="color"><option value="all">All colors</option>${COLOR_FAMILIES.map((family) => `<option value="${family}">${family}</option>`).join('')}</select></label>
+          <div class="ccs-color-key">${COLOR_FAMILIES.slice(0, 8).map((family) => `<button type="button" data-color-chip="${family}" style="--chip:${family.toLowerCase()}">${family}</button>`).join('')}</div>
+          <button class="ccs-analysis-reset" type="button" data-analysis-reset>Reset filters</button>
+          <p><b data-analysis-count>${ARTWORKS.length}</b> works shown · Color map uses a similarity embedding of each image palette.</p>
+        </section>
         <figure class="ccs-focus-card" aria-hidden="true">
           <div class="ccs-focus-image"><img alt=""></div>
           <figcaption><strong></strong><small></small></figcaption>
@@ -84,7 +106,7 @@ export default class ChicagoCollageSalon {
           <button class="ccs-close" type="button" aria-label="Return to all works">×</button>
           <p class="ccs-inspector-eyebrow"></p>
           <h2></h2>
-          <dl><div><dt>Work</dt><dd data-field="number"></dd></div><div><dt>Original</dt><dd data-field="dimensions"></dd></div></dl>
+          <dl><div><dt>Work</dt><dd data-field="number"></dd></div><div><dt>Original</dt><dd data-field="dimensions"></dd></div><div><dt>Palette</dt><dd class="ccs-palette" data-field="color"><i></i><span></span></dd></div></dl>
           <div class="ccs-inspector-actions">
             <button type="button" data-step="-1">← Previous</button>
             <button type="button" data-camera="overview">All works</button>
@@ -105,6 +127,12 @@ export default class ChicagoCollageSalon {
     this.inspector = this.container.querySelector('.ccs-inspector');
     this.status = this.container.querySelector('.ccs-status');
     this.driftButton = this.container.querySelector('.ccs-drift');
+    this.analysisPanel = this.container.querySelector('.ccs-analysis');
+    this.container.querySelector('#ccs-artists').append(...[...new Set(ARTWORKS.map((artwork) => creditedArtist(artwork.artist)))].sort().map((artist) => {
+      const option = document.createElement('option');
+      option.value = artist;
+      return option;
+    }));
   }
 
   setupScene() {
@@ -219,51 +247,81 @@ export default class ChicagoCollageSalon {
   }
 
   targetsFor(name) {
-    const count = this.cards.length;
-    return this.cards.map((_, index) => {
+    const visible = this.filteredCards;
+    const count = visible.length;
+    const targets = this.cards.map((card) => target(card.position.clone(), 0));
+    visible.forEach((card, index) => {
       if (name === 'salon') {
         const columns = this.compact ? 10 : 20;
-        const rows = Math.ceil(count / columns);
+        const rows = Math.max(1, Math.ceil(count / columns));
         const column = index % columns;
         const row = Math.floor(index / columns);
         const spacingX = this.compact ? 260 : 272;
         const spacingY = this.compact ? 340 : 350;
         const x = (column - (columns - 1) / 2) * spacingX + (row % 2 ? 28 : -14);
         const y = ((rows - 1) / 2 - row) * spacingY;
-        const z = ((index * 37) % 180) - 90;
-        return target(new THREE.Vector3(x, y, z), this.compact ? .74 : .86);
+        targets[card.index] = target(new THREE.Vector3(x, y, ((card.index * 37) % 180) - 90), this.compact ? .74 : .86);
+        return;
       }
       if (name === 'spiral') {
         const angle = index * .29 + .2;
         const radiusX = this.compact ? 1100 : 3000;
         const radiusZ = this.compact ? 2500 : 3000;
-        return target(new THREE.Vector3(Math.sin(angle) * radiusX, (index - (count - 1) / 2) * 28, Math.cos(angle) * radiusZ), .72);
+        targets[card.index] = target(new THREE.Vector3(Math.sin(angle) * radiusX, (index - (count - 1) / 2) * 28, Math.cos(angle) * radiusZ), .72);
+        return;
       }
       if (name === 'globe') {
-        const phi = Math.acos(-1 + (2 * index) / (count - 1));
-        const theta = Math.sqrt(count * Math.PI) * phi;
+        const phi = count === 1 ? Math.PI / 2 : Math.acos(-1 + (2 * index) / (count - 1));
+        const theta = Math.sqrt(Math.max(1, count) * Math.PI) * phi;
         const radius = 4200;
         const xScale = this.compact ? .43 : 1;
-        return target(new THREE.Vector3(radius * xScale * Math.cos(theta) * Math.sin(phi), radius * Math.sin(theta) * Math.sin(phi), radius * .78 * Math.cos(phi)), .64);
+        targets[card.index] = target(new THREE.Vector3(radius * xScale * Math.cos(theta) * Math.sin(phi), radius * Math.sin(theta) * Math.sin(phi), radius * .78 * Math.cos(phi)), .64);
+        return;
+      }
+      if (name === 'color-map') {
+        const xScale = this.compact ? 1450 : 4700;
+        const yScale = this.compact ? 5000 : 3300;
+        targets[card.index] = target(new THREE.Vector3(card.color.x * xScale, card.color.y * yScale, (card.color.lightness - .5) * 650), this.compact ? .66 : .72);
+        return;
       }
       const bands = 5;
       const band = index % bands;
       const station = Math.floor(index / bands);
-      const stations = Math.ceil(count / bands);
+      const stations = Math.max(1, Math.ceil(count / bands));
       const progress = station / Math.max(1, stations - 1);
       const spanX = this.compact ? 3400 : 12000;
       const waveY = this.compact ? 2600 : 2100;
-      return target(new THREE.Vector3(
+      targets[card.index] = target(new THREE.Vector3(
         (progress - .5) * spanX,
         Math.sin(progress * Math.PI * 3.2) * waveY + (band - 2) * (this.compact ? 230 : 280),
         Math.cos(progress * Math.PI * 4.4) * (this.compact ? 1200 : 1700) + (band - 2) * 70,
       ), .64);
     });
+    return targets;
   }
 
   layoutDistance(name) {
-    if (this.compact) return { salon: 16500, spiral: 16500, globe: 13500, ribbon: 12500 }[name];
-    return { salon: 9000, spiral: 13500, globe: 10500, ribbon: 10800 }[name];
+    if (this.compact) return { salon: 16500, spiral: 16500, globe: 13500, ribbon: 12500, 'color-map': 14500 }[name];
+    return { salon: 9000, spiral: 13500, globe: 10500, ribbon: 10800, 'color-map': 9600 }[name];
+  }
+
+  applyAnalysis({ switchToSalon = false } = {}) {
+    const query = this.authorQuery.trim().toLocaleLowerCase();
+    const familyOrder = new Map(COLOR_FAMILIES.map((family, index) => [family, index]));
+    this.filteredCards = this.cards.filter((card) => {
+      const artistMatches = !query || creditedArtist(card.artwork.artist).toLocaleLowerCase().includes(query);
+      const colorMatches = this.colorFilter === 'all' || card.color.family === this.colorFilter;
+      return artistMatches && colorMatches;
+    });
+    if (this.orderMode === 'author') {
+      this.filteredCards.sort((first, second) => creditedArtist(first.artwork.artist).localeCompare(creditedArtist(second.artwork.artist)) || first.index - second.index);
+    } else if (this.orderMode === 'color') {
+      this.filteredCards.sort((first, second) => (familyOrder.get(first.color.family) - familyOrder.get(second.color.family)) || first.color.hue - second.color.hue || first.color.lightness - second.color.lightness);
+    } else {
+      this.filteredCards.sort((first, second) => first.index - second.index);
+    }
+    this.container.querySelector('[data-analysis-count]').textContent = this.filteredCards.length;
+    this.setLayout(switchToSalon ? 'salon' : this.layout);
   }
 
   setLayout(name, immediate = false) {
@@ -292,7 +350,7 @@ export default class ChicagoCollageSalon {
       }));
     }
     this.container.querySelectorAll('[data-layout]').forEach((button) => button.classList.toggle('is-active', button.dataset.layout === name));
-    this.status.innerHTML = `<b>${name[0].toUpperCase()}${name.slice(1)}</b> arrangement · ${ARTWORKS.length} works`;
+    this.status.innerHTML = `<b>${LAYOUT_LABELS[name]}</b> arrangement · ${this.filteredCards.length} works`;
     this.lastDrift = startTime;
   }
 
@@ -311,7 +369,12 @@ export default class ChicagoCollageSalon {
 
   selectArtwork(card) {
     this.selected = card;
+    this.root.classList.add('is-inspecting');
+    this.analysisPanel.classList.remove('is-open');
+    this.analysisPanel.setAttribute('aria-hidden', 'true');
+    this.container.querySelector('.ccs-analysis-toggle').setAttribute('aria-expanded', 'false');
     const { artwork } = card;
+    const artist = creditedArtist(artwork.artist);
     this.cameraTargetGoal.copy(card.position);
     this.distanceGoal = this.compact ? 820 : 670;
     this.yaw = 0;
@@ -319,27 +382,32 @@ export default class ChicagoCollageSalon {
     const focusImage = this.focusCard.querySelector('img');
     focusImage.src = artwork.file;
     focusImage.alt = `Collage work by ${artwork.artist}`;
-    this.focusCard.querySelector('strong').textContent = artwork.artist;
-    this.focusCard.querySelector('small').textContent = `${String(artwork.index + 1).padStart(3, '0')} / ${ARTWORKS.length} · ${artwork.width} × ${artwork.height}`;
+    this.focusCard.querySelector('strong').textContent = artist;
+    this.focusCard.querySelector('small').textContent = `${String(artwork.index + 1).padStart(3, '0')} / ${ARTWORKS.length} · ${artwork.width} × ${artwork.height} · ${card.color.family}`;
     this.focusCard.classList.add('is-open');
     this.focusCard.setAttribute('aria-hidden', 'false');
     this.inspector.querySelector('.ccs-inspector-eyebrow').textContent = artwork.collection;
-    this.inspector.querySelector('h2').textContent = artwork.artist;
+    this.inspector.querySelector('h2').textContent = artist;
     this.inspector.querySelector('[data-field="number"]').textContent = `${String(artwork.index + 1).padStart(3, '0')} / ${ARTWORKS.length}`;
     this.inspector.querySelector('[data-field="dimensions"]').textContent = `${artwork.width} × ${artwork.height}px`;
+    const palette = this.inspector.querySelector('[data-field="color"]');
+    palette.querySelector('i').style.background = card.color.hex;
+    palette.querySelector('span').textContent = card.color.family;
     this.inspector.querySelector('a').href = artwork.source;
     this.inspector.classList.add('is-open');
     this.inspector.setAttribute('aria-hidden', 'false');
-    this.status.innerHTML = `<b>Inspecting ${String(artwork.index + 1).padStart(3, '0')}</b> · ${artwork.artist} · scroll to move closer`;
+    this.status.innerHTML = `<b>Inspecting ${String(artwork.index + 1).padStart(3, '0')}</b> · ${artist} · scroll to move closer`;
     this.syncInstances();
   }
 
   stepArtwork(delta) {
-    const current = this.selected?.index ?? (delta > 0 ? -1 : 0);
-    this.selectArtwork(this.cards[(current + delta + this.cards.length) % this.cards.length]);
+    const sequence = this.filteredCards.length ? this.filteredCards : this.cards;
+    const current = this.selected ? sequence.indexOf(this.selected) : (delta > 0 ? -1 : 0);
+    this.selectArtwork(sequence[(current + delta + sequence.length) % sequence.length]);
   }
 
   leaveInspection(returnToOverview = true) {
+    this.root?.classList.remove('is-inspecting');
     this.focusCard?.classList.remove('is-open');
     this.focusCard?.setAttribute('aria-hidden', 'true');
     this.inspector?.classList.remove('is-open');
@@ -349,7 +417,7 @@ export default class ChicagoCollageSalon {
     if (returnToOverview) {
       this.cameraTargetGoal.set(0, 0, 0);
       this.distanceGoal = this.layoutDistance(this.layout);
-      this.status.innerHTML = `<b>${this.layout[0].toUpperCase()}${this.layout.slice(1)}</b> arrangement · ${ARTWORKS.length} works`;
+      this.status.innerHTML = `<b>${LAYOUT_LABELS[this.layout]}</b> arrangement · ${this.filteredCards.length} works`;
     }
   }
 
@@ -436,7 +504,7 @@ export default class ChicagoCollageSalon {
       this.zoom(Math.exp(event.deltaY * .00135));
     };
     this.handlers.keydown = (event) => {
-      if (event.key >= '1' && event.key <= '4') this.setLayout(LAYOUTS[Number(event.key) - 1]);
+      if (event.key >= '1' && event.key <= '5') this.setLayout(LAYOUTS[Number(event.key) - 1]);
       if (event.key === 'ArrowLeft') this.selected ? this.stepArtwork(-1) : this.yaw += .12;
       if (event.key === 'ArrowRight') this.selected ? this.stepArtwork(1) : this.yaw -= .12;
       if (event.key === 'ArrowUp') this.pitch = clamp(this.pitch - .08, -.78, .78);
@@ -453,6 +521,49 @@ export default class ChicagoCollageSalon {
     stage.addEventListener('wheel', this.handlers.wheel, { passive: false });
     addEventListener('keydown', this.handlers.keydown);
     this.container.querySelectorAll('[data-layout]').forEach((button) => button.addEventListener('click', () => this.setLayout(button.dataset.layout)));
+    const analysisToggle = this.container.querySelector('.ccs-analysis-toggle');
+    const setAnalysisOpen = (open) => {
+      this.analysisPanel.classList.toggle('is-open', open);
+      this.analysisPanel.setAttribute('aria-hidden', String(!open));
+      analysisToggle.setAttribute('aria-expanded', String(open));
+    };
+    analysisToggle.addEventListener('click', () => setAnalysisOpen(!this.analysisPanel.classList.contains('is-open')));
+    this.container.querySelector('[data-analysis-close]').addEventListener('click', () => setAnalysisOpen(false));
+    const artistInput = this.container.querySelector('[data-analysis="artist"]');
+    let searchTimer = 0;
+    artistInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        this.authorQuery = artistInput.value;
+        this.applyAnalysis();
+      }, 140);
+    });
+    this.container.querySelector('[data-analysis="sort"]').addEventListener('change', (event) => {
+      this.orderMode = event.target.value;
+      this.applyAnalysis({ switchToSalon: true });
+    });
+    const colorSelect = this.container.querySelector('[data-analysis="color"]');
+    colorSelect.addEventListener('change', () => {
+      this.colorFilter = colorSelect.value;
+      this.container.querySelectorAll('[data-color-chip]').forEach((button) => button.classList.toggle('is-active', button.dataset.colorChip === this.colorFilter));
+      this.applyAnalysis();
+    });
+    this.container.querySelectorAll('[data-color-chip]').forEach((button) => button.addEventListener('click', () => {
+      this.colorFilter = this.colorFilter === button.dataset.colorChip ? 'all' : button.dataset.colorChip;
+      colorSelect.value = this.colorFilter;
+      this.container.querySelectorAll('[data-color-chip]').forEach((chip) => chip.classList.toggle('is-active', chip.dataset.colorChip === this.colorFilter));
+      this.applyAnalysis();
+    }));
+    this.container.querySelector('[data-analysis-reset]').addEventListener('click', () => {
+      this.orderMode = 'source';
+      this.authorQuery = '';
+      this.colorFilter = 'all';
+      artistInput.value = '';
+      colorSelect.value = 'all';
+      this.container.querySelector('[data-analysis="sort"]').value = 'source';
+      this.container.querySelectorAll('[data-color-chip]').forEach((button) => button.classList.remove('is-active'));
+      this.applyAnalysis({ switchToSalon: true });
+    });
     this.container.querySelectorAll('[data-camera="overview"]').forEach((button) => button.addEventListener('click', () => this.leaveInspection(true)));
     this.container.querySelector('[data-camera="closer"]').addEventListener('click', () => this.zoom(.62));
     this.container.querySelector('[data-camera="farther"]').addEventListener('click', () => this.zoom(1.62));
@@ -505,7 +616,7 @@ export default class ChicagoCollageSalon {
     this.camera.lookAt(this.cameraTarget);
     this.camera.updateMatrixWorld();
     if (this.selected) {
-      const focusScale = clamp((this.compact ? 820 : 670) / this.distance, .76, 1.45);
+      const focusScale = clamp((this.compact ? 820 : 670) / this.distance, .82, this.compact ? 1.12 : 1.18);
       this.root.style.setProperty('--focus-scale', focusScale.toFixed(3));
     }
     this.dust.rotation.y = time * .000025;

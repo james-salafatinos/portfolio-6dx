@@ -564,7 +564,7 @@ export const ARTWORKS = [
   },
   {
     "index": 51,
-    "artist": "Unknown artist",
+    "artist": "Caitlin",
     "file": "/experiments/chicago-collage-salon/images/artworks/052-unknown-artist.avif",
     "thumbnail": "/experiments/chicago-collage-salon/images/thumbs/052-unknown-artist.avif",
     "source": "https://static.wixstatic.com/media/afba4f_a12fef48d28944e0b2e7abb1a7c0dc16~mv2.png",
@@ -2280,7 +2280,7 @@ export const ARTWORKS = [
   },
   {
     "index": 207,
-    "artist": "Unknown artist",
+    "artist": "Hannah Gibson",
     "file": "/experiments/chicago-collage-salon/images/artworks/208-unknown-artist.avif",
     "thumbnail": "/experiments/chicago-collage-salon/images/thumbs/208-unknown-artist.avif",
     "source": "https://static.wixstatic.com/media/afba4f_55825f93534e4c799492a256a3d4011d~mv2.png",
@@ -2544,7 +2544,7 @@ export const ARTWORKS = [
   },
   {
     "index": 231,
-    "artist": "Unknown artist",
+    "artist": "Amelia Watson",
     "file": "/experiments/chicago-collage-salon/images/artworks/232-unknown-artist.avif",
     "thumbnail": "/experiments/chicago-collage-salon/images/thumbs/232-unknown-artist.avif",
     "source": "https://static.wixstatic.com/media/afba4f_2fec5adb90fa4fd89cf8f52e91ee585c~mv2.png",

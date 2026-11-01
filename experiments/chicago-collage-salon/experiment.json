@@ -1,9 +1,9 @@
 {
   "name": "Chicago Collage Salon",
   "slug": "chicago-collage-salon",
-  "description": "An animated CSS3D exhibition of collage works from The Chicago Collage Project.",
+  "description": "An interactive WebGL exhibition with spatial, color, and artist views of Chicago collage art.",
   "entry": "App.js",
   "type": "visualization",
-  "tags": ["three.js", "css3d", "art", "gallery", "collage"],
+  "tags": ["three.js", "webgl", "art", "gallery", "collage", "color-analysis"],
   "featured": true
 }
