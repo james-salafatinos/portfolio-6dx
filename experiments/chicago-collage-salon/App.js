@@ -218,6 +218,7 @@ export default class ChicagoCollageSalon {
         varying float vFocus;
         void main() {
           vec4 color = texture2D(atlas, vAtlasUv);
+          color.rgb = min(vec3(1.0), pow(color.rgb, vec3(.92)) * 1.04);
           float edge = step(vCardUv.x, .018) + step(1.0 - vCardUv.x, .018) + step(vCardUv.y, .014) + step(1.0 - vCardUv.y, .014);
           if (vFocus > .5 && edge > 0.0) color = vec4(.847, 1.0, .243, 1.0);
           gl_FragColor = color;
@@ -230,6 +231,14 @@ export default class ChicagoCollageSalon {
     this.galleryMesh.frustumCulled = false;
     this.scene.add(this.galleryMesh);
     base.dispose();
+
+    // The atlas keeps the 345-work overview cheap. Large cards progressively
+    // receive their own full-resolution texture so "Lean in" stays crisp.
+    this.detailLoader = new THREE.TextureLoader();
+    this.detailEntries = new Map();
+    this.detailPending = new Set();
+    this.detailWanted = new Set();
+    this.nextDetailCheck = 0;
 
     new THREE.TextureLoader().load(
       '/experiments/chicago-collage-salon/images/chicago-collage-atlas.jpg',
@@ -591,6 +600,109 @@ export default class ChicagoCollageSalon {
     if (complete) this.transition = null;
   }
 
+  refreshDetailTextures(time) {
+    if (time < this.nextDetailCheck) return;
+    this.nextDetailCheck = time + 180;
+    const viewportWidth = this.root.clientWidth;
+    const viewportHeight = this.root.clientHeight;
+    const fov = THREE.MathUtils.degToRad(this.camera.fov);
+    const candidates = [];
+
+    this.filteredCards.forEach((card) => {
+      if (card.scale < .05) return;
+      const view = card.position.clone().applyMatrix4(this.camera.matrixWorldInverse);
+      const depth = -view.z;
+      if (depth <= 1) return;
+      const projected = card.position.clone().project(this.camera);
+      if (projected.z < -1 || projected.z > 1) return;
+      const pixelsPerWorld = viewportHeight / (2 * depth * Math.tan(fov * .5));
+      const pixelWidth = CARD_WIDTH * card.scale * pixelsPerWorld;
+      const pixelHeight = CARD_HEIGHT * card.scale * pixelsPerWorld;
+      const centerX = (projected.x + 1) * viewportWidth * .5;
+      const centerY = (1 - projected.y) * viewportHeight * .5;
+      const onScreen = centerX + pixelWidth * .5 > 0 && centerX - pixelWidth * .5 < viewportWidth
+        && centerY + pixelHeight * .5 > 0 && centerY - pixelHeight * .5 < viewportHeight;
+      if (onScreen && Math.max(pixelWidth, pixelHeight) >= 72) candidates.push({ card, score: pixelWidth * pixelHeight });
+    });
+
+    candidates.sort((first, second) => second.score - first.score);
+    const limit = this.compact ? 10 : 16;
+    this.detailWanted = new Set(candidates.slice(0, limit).map(({ card }) => card.index));
+    this.detailEntries.forEach((entry, index) => {
+      entry.mesh.visible = this.detailWanted.has(index);
+      if (entry.mesh.visible) entry.lastUsed = time;
+    });
+
+    candidates.slice(0, limit).forEach(({ card }) => {
+      if (this.detailEntries.has(card.index) || this.detailPending.has(card.index)) return;
+      this.detailPending.add(card.index);
+      this.detailLoader.load(
+        card.artwork.file,
+        (texture) => {
+          this.detailPending.delete(card.index);
+          if (this.dead) {
+            texture.dispose();
+            return;
+          }
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+          const imageHeight = CARD_HEIGHT * .8;
+          const imageWidth = CARD_WIDTH;
+          const artworkRatio = card.artwork.width / card.artwork.height;
+          const frameRatio = imageWidth / imageHeight;
+          const width = artworkRatio > frameRatio ? imageWidth : imageHeight * artworkRatio;
+          const height = artworkRatio > frameRatio ? imageWidth / artworkRatio : imageHeight;
+          const geometry = new THREE.PlaneGeometry(width, height);
+          geometry.translate(0, CARD_HEIGHT * .1, 0);
+          const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            polygonOffset: true,
+            polygonOffsetFactor: -4,
+            polygonOffsetUnits: -4,
+            toneMapped: false,
+          });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.frustumCulled = false;
+          mesh.renderOrder = 3;
+          mesh.visible = this.detailWanted.has(card.index);
+          this.scene.add(mesh);
+          this.detailEntries.set(card.index, { card, geometry, material, mesh, lastUsed: performance.now() });
+        },
+        undefined,
+        () => { this.detailPending.delete(card.index); },
+      );
+    });
+
+    const cacheLimit = this.compact ? 12 : 24;
+    if (this.detailEntries.size > cacheLimit) {
+      [...this.detailEntries.entries()]
+        .filter(([index]) => !this.detailWanted.has(index))
+        .sort((first, second) => first[1].lastUsed - second[1].lastUsed)
+        .slice(0, this.detailEntries.size - cacheLimit)
+        .forEach(([index, entry]) => {
+          this.scene.remove(entry.mesh);
+          entry.geometry.dispose();
+          entry.material.map.dispose();
+          entry.material.dispose();
+          this.detailEntries.delete(index);
+        });
+    }
+  }
+
+  positionDetailMeshes() {
+    const towardCamera = new THREE.Vector3();
+    this.detailEntries.forEach((entry) => {
+      if (!entry.mesh.visible) return;
+      entry.mesh.position.copy(entry.card.position);
+      towardCamera.copy(this.camera.position).sub(entry.card.position).normalize();
+      entry.mesh.position.addScaledVector(towardCamera, 2);
+      entry.mesh.quaternion.copy(this.camera.quaternion);
+      entry.mesh.scale.setScalar(entry.card.scale);
+    });
+  }
+
   update(time) {
     if (this.dead) return;
     const frameDelta = Math.min(120, time - (this.lastFrame ?? time));
@@ -615,6 +727,8 @@ export default class ChicagoCollageSalon {
     );
     this.camera.lookAt(this.cameraTarget);
     this.camera.updateMatrixWorld();
+    this.refreshDetailTextures(time);
+    this.positionDetailMeshes();
     if (this.selected) {
       const focusScale = clamp((this.compact ? 820 : 670) / this.distance, .82, this.compact ? 1.12 : 1.18);
       this.root.style.setProperty('--focus-scale', focusScale.toFixed(3));
@@ -654,6 +768,7 @@ export default class ChicagoCollageSalon {
     stage?.removeEventListener('pointerup', this.handlers.pointerup);
     stage?.removeEventListener('pointercancel', this.handlers.pointerup);
     stage?.removeEventListener('wheel', this.handlers.wheel);
+    this.detailEntries?.forEach((entry) => entry.material.map.dispose());
     this.scene?.traverse((object) => {
       object.geometry?.dispose?.();
       object.material?.dispose?.();

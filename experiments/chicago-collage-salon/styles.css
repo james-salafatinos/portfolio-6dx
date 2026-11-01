@@ -287,11 +287,16 @@
   z-index: 3;
   inset: 0;
   pointer-events: none;
-  opacity: .12;
+  opacity: .08;
   background:
     radial-gradient(circle, rgba(255,255,255,.7) 0 .7px, transparent .9px) 0 0 / 7px 9px,
     radial-gradient(circle, rgba(0,0,0,.9) 0 .6px, transparent .8px) 2px 3px / 11px 13px;
   mix-blend-mode: soft-light;
+}
+.ccs-vignette {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.24), transparent 13%, transparent 87%, rgba(0,0,0,.24)),
+    linear-gradient(0deg, rgba(0,0,0,.34), transparent 17%, transparent 88%, rgba(0,0,0,.18));
 }
 
 body.experiment-page .back,
