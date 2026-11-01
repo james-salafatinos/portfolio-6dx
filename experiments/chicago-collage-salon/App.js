@@ -1,27 +1,28 @@
 import * as THREE from '/vendor/three/build/three.module.js';
-import { CSS3DObject, CSS3DRenderer } from '/vendor/three/examples/jsm/renderers/CSS3DRenderer.js';
 import { ARTWORKS, SOURCE_PAGE } from './Artworks.js';
 
 const STYLE_ID = 'chicago-collage-salon-styles';
 const LAYOUTS = ['salon', 'spiral', 'globe', 'ribbon'];
+const CARD_WIDTH = 240;
+const CARD_HEIGHT = 320;
+const ATLAS_COLUMNS = 20;
+const ATLAS_ROWS = Math.ceil(ARTWORKS.length / ATLAS_COLUMNS);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const easeOutQuart = (value) => 1 - Math.pow(1 - value, 4);
 
-function pose(position, rotation = new THREE.Euler(), scale = 1) {
-  const helper = new THREE.Object3D();
-  helper.position.copy(position);
-  helper.rotation.copy(rotation);
-  helper.scale.setScalar(scale);
-  return { position: helper.position.clone(), quaternion: helper.quaternion.clone(), scale: helper.scale.clone() };
+function target(position, scale = 1) {
+  return { position, scale };
 }
 
 export default class ChicagoCollageSalon {
   constructor(container) {
     this.container = container;
-    this.objects = [];
+    this.cards = ARTWORKS.map((artwork, index) => ({ artwork, index, position: new THREE.Vector3(), scale: 1 }));
     this.layout = 'salon';
     this.transition = null;
+    this.pointers = new Map();
     this.drag = null;
+    this.pinchDistance = 0;
     this.yaw = 0;
     this.pitch = 0;
     this.distance = 9000;
@@ -40,7 +41,7 @@ export default class ChicagoCollageSalon {
     this.installStyles();
     this.renderShell();
     this.setupScene();
-    this.createArtworks();
+    this.createGalleryMesh();
     this.bind();
     this.resize(this.container.clientWidth, this.container.clientHeight);
     this.setLayout('salon', true);
@@ -59,8 +60,7 @@ export default class ChicagoCollageSalon {
   renderShell() {
     this.container.innerHTML = `
       <main class="ccs-root" aria-label="Interactive three-dimensional collage exhibition">
-        <div class="ccs-webgl" aria-hidden="true"></div>
-        <div class="ccs-css3d"></div>
+        <div class="ccs-webgl" aria-label="Spatial gallery of ${ARTWORKS.length} collage works"></div>
         <div class="ccs-vignette" aria-hidden="true"></div>
         <header class="ccs-masthead">
           <span class="ccs-kicker">Digital salon / 2026</span>
@@ -76,6 +76,10 @@ export default class ChicagoCollageSalon {
           <button type="button" data-camera="closer">Closer +</button>
           <button type="button" data-camera="farther">Further −</button>
         </nav>
+        <figure class="ccs-focus-card" aria-hidden="true">
+          <div class="ccs-focus-image"><img alt=""></div>
+          <figcaption><strong></strong><small></small></figcaption>
+        </figure>
         <aside class="ccs-inspector" aria-label="Selected artwork plaque" aria-hidden="true">
           <button class="ccs-close" type="button" aria-label="Return to all works">×</button>
           <p class="ccs-inspector-eyebrow"></p>
@@ -91,13 +95,13 @@ export default class ChicagoCollageSalon {
         <footer class="ccs-footer">
           <div class="ccs-status" aria-live="polite"><b>Salon</b> arrangement · ${ARTWORKS.length} works</div>
           <button class="ccs-drift" type="button" aria-pressed="false">Drift: off</button>
-          <div class="ccs-hint">Drag to orbit · scroll/pinch to zoom · select a work to fly in</div>
+          <div class="ccs-hint">Drag to orbit · scroll/pinch to zoom · select a work to inspect</div>
         </footer>
       </main>`;
 
     this.root = this.container.querySelector('.ccs-root');
-    this.cssStage = this.container.querySelector('.ccs-css3d');
     this.webglStage = this.container.querySelector('.ccs-webgl');
+    this.focusCard = this.container.querySelector('.ccs-focus-card');
     this.inspector = this.container.querySelector('.ccs-inspector');
     this.status = this.container.querySelector('.ccs-status');
     this.driftButton = this.container.querySelector('.ccs-drift');
@@ -107,13 +111,10 @@ export default class ChicagoCollageSalon {
     this.camera = new THREE.PerspectiveCamera(43, 1, 1, 40000);
     this.camera.position.set(0, 0, this.distance);
     this.scene = new THREE.Scene();
-    this.cssRenderer = new CSS3DRenderer();
-    this.cssStage.appendChild(this.cssRenderer.domElement);
-
-    this.webglScene = new THREE.Scene();
-    this.webglRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
-    this.webglRenderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-    this.webglStage.appendChild(this.webglRenderer.domElement);
+    this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.webglStage.appendChild(this.renderer.domElement);
 
     const positions = [];
     for (let index = 0; index < 900; index += 1) {
@@ -123,91 +124,128 @@ export default class ChicagoCollageSalon {
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    this.dust = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xd8ff3e, size: 4, transparent: true, opacity: .32, sizeAttenuation: true }));
-    this.webglScene.add(this.dust);
+    this.dust = new THREE.Points(geometry, new THREE.PointsMaterial({ color: 0xd8ff3e, size: 4, transparent: true, opacity: .25, sizeAttenuation: true }));
+    this.scene.add(this.dust);
 
     const ringGeometry = new THREE.TorusGeometry(1220, 2, 5, 160);
     const ringMaterial = new THREE.MeshBasicMaterial({ color: 0xff4d8f, transparent: true, opacity: .18, wireframe: true });
     this.ring = new THREE.Mesh(ringGeometry, ringMaterial);
     this.ring.rotation.x = Math.PI * .5;
-    this.webglScene.add(this.ring);
+    this.scene.add(this.ring);
   }
 
-  createArtworks() {
-    ARTWORKS.forEach((artwork) => {
-      const landscape = artwork.width >= artwork.height;
-      const ratio = artwork.width / artwork.height;
-      const width = landscape ? 292 : Math.max(176, Math.round(292 * ratio));
-      const imageHeight = landscape ? Math.max(168, Math.round(292 / ratio)) : 298;
-      const element = document.createElement('button');
-      element.type = 'button';
-      element.className = 'ccs-artwork';
-      element.dataset.number = String(artwork.index + 1).padStart(3, '0');
-      element.setAttribute('aria-label', `Work ${artwork.index + 1} of ${ARTWORKS.length}, by ${artwork.artist}`);
-      element.style.width = `${width}px`;
-      element.style.height = `${imageHeight + 62}px`;
+  createGalleryMesh() {
+    const base = new THREE.PlaneGeometry(CARD_WIDTH, CARD_HEIGHT);
+    const geometry = new THREE.InstancedBufferGeometry();
+    geometry.index = base.index;
+    geometry.setAttribute('position', base.getAttribute('position'));
+    geometry.setAttribute('uv', base.getAttribute('uv'));
+    geometry.instanceCount = this.cards.length;
+    this.positionData = new Float32Array(this.cards.length * 3);
+    this.scaleData = new Float32Array(this.cards.length);
+    const uvData = new Float32Array(this.cards.length * 4);
+    const focusData = new Float32Array(this.cards.length);
+    this.positionAttribute = new THREE.InstancedBufferAttribute(this.positionData, 3);
+    this.scaleAttribute = new THREE.InstancedBufferAttribute(this.scaleData, 1);
+    this.focusAttribute = new THREE.InstancedBufferAttribute(focusData, 1);
+    geometry.setAttribute('instancePosition', this.positionAttribute);
+    geometry.setAttribute('instanceScale', this.scaleAttribute);
+    geometry.setAttribute('instanceUv', new THREE.InstancedBufferAttribute(uvData, 4));
+    geometry.setAttribute('instanceFocus', this.focusAttribute);
 
-      const frame = document.createElement('span');
-      frame.className = 'ccs-artwork-frame';
-      frame.style.height = `${imageHeight}px`;
-      const image = document.createElement('img');
-      image.src = artwork.thumbnail;
-      image.alt = `Collage work by ${artwork.artist}`;
-      image.loading = 'eager';
-      image.decoding = 'async';
-      frame.appendChild(image);
-
-      const plaque = document.createElement('span');
-      plaque.className = 'ccs-artwork-plaque';
-      const artist = document.createElement('strong');
-      artist.textContent = artwork.artist;
-      const metadata = document.createElement('small');
-      metadata.textContent = `${String(artwork.index + 1).padStart(3, '0')} / ${ARTWORKS.length} · ${artwork.width} × ${artwork.height}`;
-      plaque.append(artist, metadata);
-      element.append(frame, plaque);
-
-      const object = new CSS3DObject(element);
-      object.userData = { artwork, element, image };
-      this.scene.add(object);
-      this.objects.push(object);
-
-      element.addEventListener('click', () => {
-        if (!this.suppressClick) this.selectArtwork(object);
-      });
+    this.cards.forEach((card, index) => {
+      const column = index % ATLAS_COLUMNS;
+      const row = Math.floor(index / ATLAS_COLUMNS);
+      uvData[index * 4] = column / ATLAS_COLUMNS;
+      uvData[index * 4 + 1] = 1 - ((row + 1) / ATLAS_ROWS);
+      uvData[index * 4 + 2] = 1 / ATLAS_COLUMNS;
+      uvData[index * 4 + 3] = 1 / ATLAS_ROWS;
     });
+
+    const placeholder = new THREE.DataTexture(new Uint8Array([28, 27, 25, 255]), 1, 1);
+    placeholder.needsUpdate = true;
+    const material = new THREE.ShaderMaterial({
+      uniforms: { atlas: { value: placeholder } },
+      vertexShader: `
+        attribute vec3 instancePosition;
+        attribute float instanceScale;
+        attribute vec4 instanceUv;
+        attribute float instanceFocus;
+        varying vec2 vAtlasUv;
+        varying vec2 vCardUv;
+        varying float vFocus;
+        void main() {
+          vAtlasUv = instanceUv.xy + uv * instanceUv.zw;
+          vCardUv = uv;
+          vFocus = instanceFocus;
+          vec4 center = modelViewMatrix * vec4(instancePosition, 1.0);
+          vec3 billboardPosition = center.xyz + vec3(position.xy * instanceScale, 0.0);
+          gl_Position = projectionMatrix * vec4(billboardPosition, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D atlas;
+        varying vec2 vAtlasUv;
+        varying vec2 vCardUv;
+        varying float vFocus;
+        void main() {
+          vec4 color = texture2D(atlas, vAtlasUv);
+          float edge = step(vCardUv.x, .018) + step(1.0 - vCardUv.x, .018) + step(vCardUv.y, .014) + step(1.0 - vCardUv.y, .014);
+          if (vFocus > .5 && edge > 0.0) color = vec4(.847, 1.0, .243, 1.0);
+          gl_FragColor = color;
+        }
+      `,
+    });
+    this.galleryGeometry = geometry;
+    this.galleryMaterial = material;
+    this.galleryMesh = new THREE.Mesh(geometry, material);
+    this.galleryMesh.frustumCulled = false;
+    this.scene.add(this.galleryMesh);
+    base.dispose();
+
+    new THREE.TextureLoader().load(
+      '/experiments/chicago-collage-salon/images/chicago-collage-atlas.jpg',
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.anisotropy = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
+        this.galleryMaterial.uniforms.atlas.value.dispose();
+        this.galleryMaterial.uniforms.atlas.value = texture;
+      },
+      undefined,
+      () => { this.status.innerHTML = '<b>Atlas unavailable</b> · reload to retry'; },
+    );
   }
 
   targetsFor(name) {
-    const count = this.objects.length;
-    return this.objects.map((_, index) => {
+    const count = this.cards.length;
+    return this.cards.map((_, index) => {
       if (name === 'salon') {
         const columns = this.compact ? 10 : 20;
         const rows = Math.ceil(count / columns);
         const column = index % columns;
         const row = Math.floor(index / columns);
-        const x = (column - (columns - 1) / 2) * (this.compact ? 315 : 330) + (this.compact ? 0 : (row % 2 ? 44 : -22));
-        const y = ((rows - 1) / 2 - row) * (this.compact ? 325 : 335);
+        const spacingX = this.compact ? 260 : 272;
+        const spacingY = this.compact ? 340 : 350;
+        const x = (column - (columns - 1) / 2) * spacingX + (row % 2 ? 28 : -14);
+        const y = ((rows - 1) / 2 - row) * spacingY;
         const z = ((index * 37) % 180) - 90;
-        return pose(new THREE.Vector3(x, y, z), new THREE.Euler(0, 0, ((index % columns) - (columns - 1) / 2) * .004), this.compact ? .72 : .82);
+        return target(new THREE.Vector3(x, y, z), this.compact ? .74 : .86);
       }
-
       if (name === 'spiral') {
         const angle = index * .29 + .2;
         const radiusX = this.compact ? 1100 : 3000;
         const radiusZ = this.compact ? 2500 : 3000;
-        const position = new THREE.Vector3(Math.sin(angle) * radiusX, (index - (count - 1) / 2) * 28, Math.cos(angle) * radiusZ);
-        return pose(position, new THREE.Euler(0, Math.sin(angle) * .13, index % 2 ? .025 : -.025), .7);
+        return target(new THREE.Vector3(Math.sin(angle) * radiusX, (index - (count - 1) / 2) * 28, Math.cos(angle) * radiusZ), .72);
       }
-
       if (name === 'globe') {
         const phi = Math.acos(-1 + (2 * index) / (count - 1));
         const theta = Math.sqrt(count * Math.PI) * phi;
         const radius = 4200;
         const xScale = this.compact ? .43 : 1;
-        const position = new THREE.Vector3(radius * xScale * Math.cos(theta) * Math.sin(phi), radius * Math.sin(theta) * Math.sin(phi), radius * .78 * Math.cos(phi));
-        return pose(position, new THREE.Euler(), .62);
+        return target(new THREE.Vector3(radius * xScale * Math.cos(theta) * Math.sin(phi), radius * Math.sin(theta) * Math.sin(phi), radius * .78 * Math.cos(phi)), .64);
       }
-
       const bands = 5;
       const band = index % bands;
       const station = Math.floor(index / bands);
@@ -215,11 +253,11 @@ export default class ChicagoCollageSalon {
       const progress = station / Math.max(1, stations - 1);
       const spanX = this.compact ? 3400 : 12000;
       const waveY = this.compact ? 2600 : 2100;
-      const x = (progress - .5) * spanX;
-      const y = Math.sin(progress * Math.PI * 3.2) * waveY + (band - 2) * (this.compact ? 230 : 280);
-      const z = Math.cos(progress * Math.PI * 4.4) * (this.compact ? 1200 : 1700) + (band - 2) * 70;
-      const position = new THREE.Vector3(x, y, z);
-      return pose(position, new THREE.Euler(), .62);
+      return target(new THREE.Vector3(
+        (progress - .5) * spanX,
+        Math.sin(progress * Math.PI * 3.2) * waveY + (band - 2) * (this.compact ? 230 : 280),
+        Math.cos(progress * Math.PI * 4.4) * (this.compact ? 1200 : 1700) + (band - 2) * 70,
+      ), .64);
     });
   }
 
@@ -236,31 +274,55 @@ export default class ChicagoCollageSalon {
     this.distanceGoal = this.layoutDistance(name);
     const targets = this.targetsFor(name);
     const startTime = performance.now();
-    this.transition = this.objects.map((object, index) => ({
-      object,
-      from: { position: object.position.clone(), quaternion: object.quaternion.clone(), scale: object.scale.clone() },
-      to: targets[index],
-      start: startTime + (immediate ? 0 : ((index * 11) % this.objects.length) * 17),
-      duration: immediate ? 1 : 1250 + (index % 6) * 95,
-    }));
+    if (immediate) {
+      this.cards.forEach((card, index) => {
+        card.position.copy(targets[index].position);
+        card.scale = targets[index].scale;
+      });
+      this.transition = null;
+      this.syncInstances();
+    } else {
+      this.transition = this.cards.map((card, index) => ({
+        card,
+        fromPosition: card.position.clone(),
+        fromScale: card.scale,
+        to: targets[index],
+        start: startTime + ((index * 11) % this.cards.length) * 10,
+        duration: 950 + (index % 6) * 75,
+      }));
+    }
     this.container.querySelectorAll('[data-layout]').forEach((button) => button.classList.toggle('is-active', button.dataset.layout === name));
     this.status.innerHTML = `<b>${name[0].toUpperCase()}${name.slice(1)}</b> arrangement · ${ARTWORKS.length} works`;
     this.lastDrift = startTime;
   }
 
-  selectArtwork(object) {
-    if (this.selected && this.selected !== object) {
-      this.selected.userData.element.classList.remove('is-selected');
-      this.selected.userData.image.src = this.selected.userData.artwork.thumbnail;
-    }
-    this.selected = object;
-    object.userData.element.classList.add('is-selected');
-    const { artwork } = object.userData;
-    object.userData.image.src = artwork.file;
-    this.cameraTargetGoal.copy(object.position);
+  syncInstances() {
+    this.cards.forEach((card, index) => {
+      this.positionData[index * 3] = card.position.x;
+      this.positionData[index * 3 + 1] = card.position.y;
+      this.positionData[index * 3 + 2] = card.position.z;
+      this.scaleData[index] = card.scale;
+      this.focusAttribute.array[index] = this.selected?.index === index ? 1 : 0;
+    });
+    this.positionAttribute.needsUpdate = true;
+    this.scaleAttribute.needsUpdate = true;
+    this.focusAttribute.needsUpdate = true;
+  }
+
+  selectArtwork(card) {
+    this.selected = card;
+    const { artwork } = card;
+    this.cameraTargetGoal.copy(card.position);
     this.distanceGoal = this.compact ? 820 : 670;
     this.yaw = 0;
     this.pitch = 0;
+    const focusImage = this.focusCard.querySelector('img');
+    focusImage.src = artwork.file;
+    focusImage.alt = `Collage work by ${artwork.artist}`;
+    this.focusCard.querySelector('strong').textContent = artwork.artist;
+    this.focusCard.querySelector('small').textContent = `${String(artwork.index + 1).padStart(3, '0')} / ${ARTWORKS.length} · ${artwork.width} × ${artwork.height}`;
+    this.focusCard.classList.add('is-open');
+    this.focusCard.setAttribute('aria-hidden', 'false');
     this.inspector.querySelector('.ccs-inspector-eyebrow').textContent = artwork.collection;
     this.inspector.querySelector('h2').textContent = artwork.artist;
     this.inspector.querySelector('[data-field="number"]').textContent = `${String(artwork.index + 1).padStart(3, '0')} / ${ARTWORKS.length}`;
@@ -269,19 +331,21 @@ export default class ChicagoCollageSalon {
     this.inspector.classList.add('is-open');
     this.inspector.setAttribute('aria-hidden', 'false');
     this.status.innerHTML = `<b>Inspecting ${String(artwork.index + 1).padStart(3, '0')}</b> · ${artwork.artist} · scroll to move closer`;
+    this.syncInstances();
   }
 
   stepArtwork(delta) {
-    const current = this.selected?.userData.artwork.index ?? (delta > 0 ? -1 : 0);
-    this.selectArtwork(this.objects[(current + delta + this.objects.length) % this.objects.length]);
+    const current = this.selected?.index ?? (delta > 0 ? -1 : 0);
+    this.selectArtwork(this.cards[(current + delta + this.cards.length) % this.cards.length]);
   }
 
   leaveInspection(returnToOverview = true) {
+    this.focusCard?.classList.remove('is-open');
+    this.focusCard?.setAttribute('aria-hidden', 'true');
     this.inspector?.classList.remove('is-open');
     this.inspector?.setAttribute('aria-hidden', 'true');
-    this.selected?.userData.element.classList.remove('is-selected');
-    if (this.selected) this.selected.userData.image.src = this.selected.userData.artwork.thumbnail;
     this.selected = null;
+    if (this.focusAttribute) this.syncInstances();
     if (returnToOverview) {
       this.cameraTargetGoal.set(0, 0, 0);
       this.distanceGoal = this.layoutDistance(this.layout);
@@ -294,16 +358,57 @@ export default class ChicagoCollageSalon {
     this.distanceGoal = clamp(this.distanceGoal * multiplier, 420, max);
   }
 
+  pickArtwork(clientX, clientY) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const fov = THREE.MathUtils.degToRad(this.camera.fov);
+    let best = null;
+    let bestDepth = Infinity;
+    this.cards.forEach((card) => {
+      const view = card.position.clone().applyMatrix4(this.camera.matrixWorldInverse);
+      const depth = -view.z;
+      if (depth <= 1) return;
+      const projected = card.position.clone().project(this.camera);
+      if (projected.z < -1 || projected.z > 1) return;
+      const centerX = rect.left + (projected.x + 1) * rect.width * .5;
+      const centerY = rect.top + (1 - projected.y) * rect.height * .5;
+      const pixelsPerWorld = rect.height / (2 * depth * Math.tan(fov * .5));
+      const halfWidth = CARD_WIDTH * card.scale * pixelsPerWorld * .5;
+      const halfHeight = CARD_HEIGHT * card.scale * pixelsPerWorld * .5;
+      if (Math.abs(clientX - centerX) <= halfWidth && Math.abs(clientY - centerY) <= halfHeight && depth < bestDepth) {
+        best = card;
+        bestDepth = depth;
+      }
+    });
+    return best;
+  }
+
   bind() {
-    const stage = this.cssRenderer.domElement;
+    const stage = this.renderer.domElement;
     this.handlers.pointerdown = (event) => {
-      if (event.target.closest('.ccs-inspector, .ccs-layouts, .ccs-masthead, .ccs-footer')) return;
-      this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY };
-      this.suppressClick = false;
+      if (event.target.closest('.ccs-inspector, .ccs-layouts, .ccs-masthead, .ccs-footer, .ccs-focus-card')) return;
+      this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       stage.setPointerCapture(event.pointerId);
-      this.root.classList.add('is-dragging');
+      if (this.pointers.size === 1) {
+        this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY };
+        this.suppressClick = false;
+        this.root.classList.add('is-dragging');
+      } else if (this.pointers.size === 2) {
+        const [first, second] = [...this.pointers.values()];
+        this.pinchDistance = Math.hypot(second.x - first.x, second.y - first.y);
+        this.drag = null;
+        this.suppressClick = true;
+      }
     };
     this.handlers.pointermove = (event) => {
+      if (!this.pointers.has(event.pointerId)) return;
+      this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.pointers.size === 2) {
+        const [first, second] = [...this.pointers.values()];
+        const distance = Math.hypot(second.x - first.x, second.y - first.y);
+        if (this.pinchDistance > 0 && distance > 0) this.zoom(this.pinchDistance / distance);
+        this.pinchDistance = distance;
+        return;
+      }
       if (!this.drag || this.drag.id !== event.pointerId) return;
       const dx = event.clientX - this.drag.x;
       const dy = event.clientY - this.drag.y;
@@ -314,11 +419,16 @@ export default class ChicagoCollageSalon {
       if (Math.hypot(event.clientX - this.drag.startX, event.clientY - this.drag.startY) > 7) this.suppressClick = true;
     };
     this.handlers.pointerup = (event) => {
-      if (this.drag?.id === event.pointerId) {
-        this.drag = null;
-        this.root.classList.remove('is-dragging');
-        requestAnimationFrame(() => { this.suppressClick = false; });
+      const shouldPick = this.drag?.id === event.pointerId && !this.suppressClick;
+      this.pointers.delete(event.pointerId);
+      if (shouldPick) {
+        const card = this.pickArtwork(event.clientX, event.clientY);
+        if (card) this.selectArtwork(card);
       }
+      if (this.drag?.id === event.pointerId) this.drag = null;
+      if (this.pointers.size < 2) this.pinchDistance = 0;
+      this.root.classList.remove('is-dragging');
+      requestAnimationFrame(() => { this.suppressClick = false; });
     };
     this.handlers.wheel = (event) => {
       if (event.target.closest('.ccs-inspector')) return;
@@ -362,11 +472,11 @@ export default class ChicagoCollageSalon {
     this.transition.forEach((move) => {
       const raw = clamp((time - move.start) / move.duration, 0, 1);
       const progress = easeOutQuart(raw);
-      move.object.position.lerpVectors(move.from.position, move.to.position, progress);
-      move.object.quaternion.slerpQuaternions(move.from.quaternion, move.to.quaternion, progress);
-      move.object.scale.lerpVectors(move.from.scale, move.to.scale, progress);
+      move.card.position.lerpVectors(move.fromPosition, move.to.position, progress);
+      move.card.scale = THREE.MathUtils.lerp(move.fromScale, move.to.scale, progress);
       if (raw < 1) complete = false;
     });
+    this.syncInstances();
     if (complete) this.transition = null;
   }
 
@@ -393,21 +503,22 @@ export default class ChicagoCollageSalon {
       this.cameraTarget.z + Math.cos(this.yaw) * cosPitch * this.distance,
     );
     this.camera.lookAt(this.cameraTarget);
-
-    // Every work behaves like a gallery label: it stays legible as the viewer moves.
-    this.objects.forEach((object) => object.lookAt(this.camera.position));
+    this.camera.updateMatrixWorld();
+    if (this.selected) {
+      const focusScale = clamp((this.compact ? 820 : 670) / this.distance, .76, 1.45);
+      this.root.style.setProperty('--focus-scale', focusScale.toFixed(3));
+    }
     this.dust.rotation.y = time * .000025;
     this.ring.position.copy(this.cameraTarget);
     this.ring.rotation.z = time * .000035;
-    this.webglRenderer.render(this.webglScene, this.camera);
-    this.cssRenderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene, this.camera);
     this.raf = requestAnimationFrame((nextTime) => this.update(nextTime));
   }
 
   resize(width, height) {
     if (!this.camera) return;
-    const safeWidth = Math.max(1, width);
-    const safeHeight = Math.max(1, height);
+    const safeWidth = Math.max(1, this.root?.clientWidth || width);
+    const safeHeight = Math.max(1, this.root?.clientHeight || height);
     const compact = safeWidth < 600;
     const firstResize = this.compact === undefined;
     const breakpointChanged = !firstResize && this.compact !== compact;
@@ -418,26 +529,26 @@ export default class ChicagoCollageSalon {
     }
     this.camera.aspect = safeWidth / safeHeight;
     this.camera.updateProjectionMatrix();
-    this.cssRenderer.setSize(safeWidth, safeHeight);
-    this.webglRenderer.setSize(safeWidth, safeHeight, false);
-    if (breakpointChanged && this.objects.length) this.setLayout(this.layout, true);
+    this.renderer.setSize(safeWidth, safeHeight, false);
+    if (breakpointChanged && this.cards.length) this.setLayout(this.layout, true);
   }
 
   destroy() {
     this.dead = true;
     cancelAnimationFrame(this.raf);
     removeEventListener('keydown', this.handlers.keydown);
-    const stage = this.cssRenderer?.domElement;
+    const stage = this.renderer?.domElement;
     stage?.removeEventListener('pointerdown', this.handlers.pointerdown);
     stage?.removeEventListener('pointermove', this.handlers.pointermove);
     stage?.removeEventListener('pointerup', this.handlers.pointerup);
     stage?.removeEventListener('pointercancel', this.handlers.pointerup);
     stage?.removeEventListener('wheel', this.handlers.wheel);
-    this.webglScene?.traverse((object) => {
+    this.scene?.traverse((object) => {
       object.geometry?.dispose?.();
       object.material?.dispose?.();
     });
-    this.webglRenderer?.dispose();
+    this.galleryMaterial?.uniforms.atlas.value?.dispose?.();
+    this.renderer?.dispose();
     this.container.replaceChildren();
   }
 }
