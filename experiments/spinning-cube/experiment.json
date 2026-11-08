@@ -1,0 +1,9 @@
+{
+  "name": "Spinning Cube",
+  "slug": "spinning-cube",
+  "description": "A rotating Three.js cube with fixed world axes. Drag to orbit and scroll or pinch to zoom.",
+  "entry": "App.js",
+  "type": "visualization",
+  "tags": ["three.js", "cube", "axes", "jelly"],
+  "featured": false
+}
